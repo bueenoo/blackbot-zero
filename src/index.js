@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Client, GatewayIntentBits, Partials, Routes, REST, SlashCommandBuilder, MessageFlags } from "discord.js";
+import { Client, GatewayIntentBits, Partials, Routes, REST, SlashCommandBuilder, PermissionFlagsBits, ChannelType, MessageFlags } from "discord.js";
 import { CONFIG } from "./config.js";
 import { openTicket } from "./handlers/tickets.js";
 import { sendVerificationPanel } from "./handlers/verification.js";
@@ -23,51 +23,101 @@ const client = new Client({
 client.once("clientReady", async () => {
   console.log(`[BLACKBOT] ✅ Bot online como ${client.user.tag}`);
 
-  // Registra /ticket no GUILD
+  // Registra comandos no GUILD
   try {
     const rest = new REST({ version: "10" }).setToken(CONFIG.TOKEN);
-    const commands = [
-      new SlashCommandBuilder()
-        .setName("ticket")
-        .setDescription("Abrir um ticket privado")
-        .addStringOption(o =>
-          o.setName("tipo").setDescription("Selecione o tipo do ticket").setRequired(true)
-            .addChoices(
-              { name: "Doações", value: "doacoes" },
-              { name: "Denúncia", value: "denuncia" },
-              { name: "Suporte Técnico", value: "suporte" }
-            )
-        ).toJSON()
-    ];
-    await rest.put(Routes.applicationGuildCommands(client.user.id, CONFIG.GUILD_ID), { body: commands });
+
+    const cmdTicket = new SlashCommandBuilder()
+      .setName("ticket")
+      .setDescription("Abrir um ticket privado")
+      .addStringOption(o =>
+        o.setName("tipo").setDescription("Selecione o tipo do ticket").setRequired(true)
+          .addChoices(
+            { name: "Doações", value: "doacoes" },
+            { name: "Denúncia", value: "denuncia" },
+            { name: "Suporte Técnico", value: "suporte" }
+          )
+      );
+
+    const cmdPainel = new SlashCommandBuilder()
+      .setName("painel")
+      .setDescription("Reinstalar o painel de botões de tickets")
+      .addChannelOption(o =>
+        o.setName("canal")
+          .setDescription("Canal onde enviar o painel")
+          .addChannelTypes(ChannelType.GuildText)
+          .setRequired(false)
+      )
+      .addBooleanOption(o =>
+        o.setName("limpar")
+          .setDescription("Apagar mensagens antigas do bot no canal antes")
+          .setRequired(false)
+      )
+      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild);
+
+    await rest.put(Routes.applicationGuildCommands(client.user.id, CONFIG.GUILD_ID), {
+      body: [cmdTicket.toJSON(), cmdPainel.toJSON()]
+    });
     console.log("[BLACKBOT] Slash commands registrados no GUILD.");
   } catch (e) {
     console.error("[BLACKBOT:ERR] Falha ao registrar comandos:", e);
   }
 
-  await sendVerificationPanel(client);
+  // Se tiver VERIFICATION_CHANNEL_ID, tenta enviar automaticamente (opcional)
+  if (CONFIG.CHANNELS.VERIFICATION) {
+    await sendVerificationPanel(client).catch(() => {});
+  }
 });
 
 client.on("interactionCreate", async (interaction) => {
-  // Debug para ver o evento chegando e o customId
-  try {
-    console.log("[DEBUG interaction]", {
-      isButton: interaction.isButton?.(),
-      isCommand: interaction.isChatInputCommand?.(),
-      customId: interaction.customId,
-      channel: interaction.channel?.id
-    });
-  } catch {}
+  // Debug
+  try { console.log("[DEBUG interaction]", { isButton: interaction.isButton?.(), isCommand: interaction.isChatInputCommand?.(), customId: interaction.customId, channel: interaction.channel?.id }); } catch {}
+
   try {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === "ticket") {
         const tipo = interaction.options.getString("tipo");
-        await openTicket(interaction, tipo);
+        return await openTicket(interaction, tipo);
+      }
+      if (interaction.commandName === "painel") {
+        // Permissão já restringida via defaultMemberPermissions, mas validamos por garantia
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
+          return interaction.reply({ content: "❌ Você não tem permissão para usar este comando.", flags: MessageFlags.Ephemeral });
+        }
+
+        const canal = interaction.options.getChannel("canal") || null;
+        const limpar = interaction.options.getBoolean("limpar") || false;
+
+        await interaction.reply({ content: "⏳ Instalando painel...", flags: MessageFlags.Ephemeral });
+
+        let target = canal;
+        if (!target && CONFIG.CHANNELS.VERIFICATION) {
+          try { target = await interaction.client.channels.fetch(CONFIG.CHANNELS.VERIFICATION); } catch {}
+        }
+        if (!target || !target.isTextBased()) {
+          return interaction.editReply("❌ Defina um canal válido (use a opção `canal` ou a variável VERIFICATION_CHANNEL_ID).");
+        }
+
+        if (limpar) {
+          try {
+            const msgs = await target.messages.fetch({ limit: 50 });
+            const toDelete = msgs.filter(m => m.author?.id === interaction.client.user.id && (m.components?.length || (m.content || "").includes("Central de Atendimentos")));
+            for (const msg of toDelete.values()) {
+              await msg.delete().catch(() => {});
+            }
+          } catch (e) {
+            console.warn("[PAINEL] Falha ao limpar mensagens:", e.message);
+          }
+        }
+
+        const res = await sendVerificationPanel(interaction.client, target);
+        if (res?.ok) return interaction.editReply(`✅ Painel enviado em <#${res.channelId}>.`);
+        else return interaction.editReply(`❌ Falha ao enviar painel: ${res?.reason || "erro desconhecido"}`);
       }
     } else if (interaction.isButton()) {
       if (interaction.customId?.startsWith("open_ticket_")) {
         const tipo = interaction.customId.replace("open_ticket_", "");
-        await openTicket(interaction, tipo);
+        return await openTicket(interaction, tipo);
       }
     }
   } catch (err) {
