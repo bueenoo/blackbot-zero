@@ -1,43 +1,29 @@
 import "dotenv/config";
-import { Client, GatewayIntentBits, Partials, Routes, REST, SlashCommandBuilder, PermissionFlagsBits } from "discord.js";
+import { Client, GatewayIntentBits, Partials, Routes, REST, SlashCommandBuilder } from "discord.js";
 import { CONFIG } from "./config.js";
 import { openTicket } from "./handlers/tickets.js";
 import { sendVerificationPanel } from "./handlers/verification.js";
-/**
- * Pequeno servidor HTTP para manter o container vivo no Railway
- * (caso a plataforma exija escutar em PORT para healthchecks).
- */
 import http from "http";
+
+// Healthcheck HTTP (Railway)
 const PORT = process.env.PORT || 3000;
 http.createServer((_, res) => {
   res.writeHead(200, { "Content-Type": "text/plain" });
   res.end("Blackbot OK");
 }).listen(PORT, () => console.log(`[HEALTH] HTTP on :${PORT}`));
 
-// Manejo gracioso de SIGTERM/SIGINT (log claro)
-process.on("SIGTERM", () => {
-  console.log("[PROCESS] SIGTERM recebido. Encerrando...");
-  process.exit(0);
-});
-process.on("SIGINT", () => {
-  console.log("[PROCESS] SIGINT recebido. Encerrando...");
-  process.exit(0);
-});
-
+process.on("SIGTERM", () => { console.log("[PROCESS] SIGTERM recebido. Encerrando..."); process.exit(0); });
+process.on("SIGINT", () => { console.log("[PROCESS] SIGINT recebido. Encerrando..."); process.exit(0); });
 
 const client = new Client({
-  intents: [
-    GatewayIntentBits.Guilds,
-    GatewayIntentBits.GuildMessages,
-    GatewayIntentBits.MessageContent
-  ],
+  intents: [GatewayIntentBits.Guilds, GatewayIntentBits.GuildMessages, GatewayIntentBits.MessageContent],
   partials: [Partials.Channel]
 });
 
-client.once("ready", async () => {
+client.once("clientReady", async () => {
   console.log(`[BLACKBOT] ✅ Bot online como ${client.user.tag}`);
 
-  // Registra /ticket no GUILD para evitar permissões globais
+  // Registra /ticket no GUILD
   try {
     const rest = new REST({ version: "10" }).setToken(CONFIG.TOKEN);
     const commands = [
@@ -45,28 +31,20 @@ client.once("ready", async () => {
         .setName("ticket")
         .setDescription("Abrir um ticket privado")
         .addStringOption(o =>
-          o.setName("tipo")
-            .setDescription("Selecione o tipo do ticket")
-            .setRequired(true)
+          o.setName("tipo").setDescription("Selecione o tipo do ticket").setRequired(true)
             .addChoices(
               { name: "Doações", value: "doacoes" },
               { name: "Denúncia", value: "denuncia" },
               { name: "Suporte Técnico", value: "suporte" }
             )
-        )
-        .toJSON()
+        ).toJSON()
     ];
-
-    await rest.put(
-      Routes.applicationGuildCommands(client.user.id, CONFIG.GUILD_ID),
-      { body: commands }
-    );
+    await rest.put(Routes.applicationGuildCommands(client.user.id, CONFIG.GUILD_ID), { body: commands });
     console.log("[BLACKBOT] Slash commands registrados no GUILD.");
   } catch (e) {
     console.error("[BLACKBOT:ERR] Falha ao registrar comandos:", e);
   }
 
-  // (Opcional) envia painel de verificação com botões
   await sendVerificationPanel(client);
 });
 

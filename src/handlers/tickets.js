@@ -3,24 +3,33 @@ import { CONFIG } from "../config.js";
 
 /**
  * Abre um ticket PRIVADO criando um canal na categoria definida por TICKETS_CATEGORY_ID.
- * O canal é visível somente para o autor do ticket e para o cargo da staff (STAFF_ROLE_ID).
+ * Responde rapidamente com deferReply(ephemeral) para evitar "Esta interação falhou".
  */
 export async function openTicket(interaction, tipo) {
+  let replied = false;
   try {
+    await interaction.deferReply({ ephemeral: true });
+    replied = true;
+
     const guild = interaction.guild;
-    if (!guild) {
-      return interaction.reply({ content: "❌ Não consegui identificar o servidor.", ephemeral: true });
-    }
+    if (!guild) return interaction.editReply("❌ Não consegui identificar o servidor.");
 
+    // Valida categoria
+    const categoryId = CONFIG.TICKETS_CATEGORY_ID;
+    const category = await guild.channels.fetch(categoryId).catch(() => null);
+
+    if (!category) return interaction.editReply("❌ Categoria de tickets não encontrada. Verifique TICKETS_CATEGORY_ID.");
+    if (category.type !== ChannelType.GuildCategory)
+      return interaction.editReply("❌ O ID informado não é uma **Categoria**. Crie uma categoria normal (não fórum) e use o ID dela.");
+
+    // Nome do canal
     const channelName = `ticket-${tipo}-${interaction.user.username}`
-      .toLowerCase()
-      .replace(/[^a-z0-9-_]/g, "-")
-      .slice(0, 90);
+      .toLowerCase().replace(/[^a-z0-9-_]/g, "-").slice(0, 90);
 
+    // Cria o canal
     const channel = await guild.channels.create({
       name: channelName,
       type: ChannelType.GuildText,
-      parent: CONFIG.TICKETS_CATEGORY_ID,
       permissionOverwrites: [
         { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
         { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] },
@@ -28,20 +37,28 @@ export async function openTicket(interaction, tipo) {
       ]
     });
 
-    await channel.send({
-      content: `👋 Olá <@${interaction.user.id}>, que bom que você está aqui!
+    // Move explicitamente para a categoria
+    await channel.setParent(categoryId, { lockPermissions: false });
 
-` +
-        `Em breve um membro da nossa **staff** vai te auxiliar.
-` +
+    await channel.send({
+      content: `👋 Olá <@${interaction.user.id}>, que bom que você está aqui!\n\n` +
+        `Em breve um membro da nossa **staff** vai te auxiliar.\n` +
         `👉 Descreva por favor **o que você necessita** e, se tiver algum **anexo**, já nos envie.`
     });
 
-    await interaction.reply({ content: `✅ Seu ticket foi aberto: ${channel}`, ephemeral: true });
+    return interaction.editReply(`✅ Seu ticket foi aberto: ${channel}`);
   } catch (err) {
     console.error("[TICKETS:ERR]", err);
+    const msg = [
+      "❌ Erro ao abrir o ticket.",
+      "Verifique:",
+      "• Se o **TICKETS_CATEGORY_ID** é uma **Categoria** (não fórum/canal de texto).",
+      "• Se o bot tem **Gerenciar Canais** e **Ver Canal** na categoria.",
+      "• Se o cargo do bot está **acima** do cargo da staff."
+    ].join("\n");
     try {
-      await interaction.reply({ content: "❌ Erro ao abrir o ticket. Verifique se o bot tem **Gerenciar Canais** e **Ver Canal** na categoria.", ephemeral: true });
+      if (replied) await interaction.editReply(msg);
+      else await interaction.reply({ content: msg, ephemeral: true });
     } catch {}
   }
 }

@@ -1,12 +1,10 @@
 {
   "name": "blackbot-black-discord",
-  "version": "3.2.2",
-  "description": "Blackbot - sistema de tickets privados e painel de verificação",
+  "version": "3.2.3",
+  "description": "Blackbot - tickets privados com painel e healthcheck HTTP",
   "main": "src/index.js",
   "type": "module",
-  "scripts": {
-    "start": "node src/index.js"
-  },
+  "scripts": { "start": "node src/index.js" },
   "dependencies": {
     "discord.js": "^14.15.3",
     "dotenv": "^16.4.5"

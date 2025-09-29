@@ -1,10 +1,6 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { CONFIG } from "../config.js";
 
-/**
- * Envia um painel simples de verificacão (opcional).
- * Ajuste o canal via VERIFICATION_CHANNEL_ID no .env.
- */
 export async function sendVerificationPanel(client) {
   try {
     if (!CONFIG.CHANNELS.VERIFICATION) return;
@@ -16,12 +12,12 @@ export async function sendVerificationPanel(client) {
     }
 
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("open_ticket_doacoes").setLabel("💰 Doações").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("open_ticket_doacoes").setLabel("💰 Doações").setStyle(ButtonStyle.Success),
       new ButtonBuilder().setCustomId("open_ticket_denuncia").setLabel("🚨 Denúncia").setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId("open_ticket_suporte").setLabel("⚙️ Suporte Técnico").setStyle(ButtonStyle.Secondary)
+      new ButtonBuilder().setCustomId("open_ticket_suporte").setLabel("🛠️ Suporte Técnico").setStyle(ButtonStyle.Primary)
     );
 
-    await channel.send({ content: "🎫 **Abra um ticket privado** selecionando uma opção abaixo:", components: [row] });
+    await channel.send({ content: "**Central de Atendimentos — Black**\nAbra um ticket e nossa staff irá ajudá-lo.", components: [row] });
     console.log("[BLACKBOT] Painel de verificação enviado.");
   } catch (err) {
     console.error("[BLACKBOT:ERR] Falha ao enviar painel de verificação:", err);

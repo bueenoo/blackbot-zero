@@ -11,5 +11,4 @@ healthcheckTimeout = 100
 cmd = "node src/index.js"
 
 [variables]
-# Evita que a plataforma tente colocar a app para dormir
 RAILWAY_DISABLE_SLEEP = "true"
