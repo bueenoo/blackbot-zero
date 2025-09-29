@@ -1,33 +1,47 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
-import { getConfiguredChannel } from "../utils/chanmap.js";
-import { pickTextTarget } from "../utils/textTarget.js";
+import { ChannelType, PermissionFlagsBits } from "discord.js";
+import { CONFIG } from "../config.js";
 
-export async function sendTicketsPanel(channel) {
-  const target = pickTextTarget(channel);
-  if (!target) return;
-  const embed = new EmbedBuilder()
-    .setTitle("Central de Atendimentos — Black")
-    .setDescription("Abra um ticket e nossa staff irá ajudá-lo.")
-    .setColor(0x151515);
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("ticket_doacoes").setLabel("💰 Doações").setStyle(ButtonStyle.Success),
-    new ButtonBuilder().setCustomId("ticket_denuncia").setLabel("🚨 Denúncia").setStyle(ButtonStyle.Danger),
-    new ButtonBuilder().setCustomId("ticket_suporte").setLabel("⚙️ Suporte Técnico").setStyle(ButtonStyle.Primary)
-  );
-  await target.send({ embeds: [embed], components: [row] });
-}
+/**
+ * Abre um ticket PRIVADO criando um canal na categoria definida por TICKETS_CATEGORY_ID.
+ * O canal é visível somente para o autor do ticket e para o cargo da staff (STAFF_ROLE_ID).
+ */
+export async function openTicket(interaction, tipo) {
+  try {
+    const guild = interaction.guild;
+    if (!guild) {
+      return interaction.reply({ content: "❌ Não consegui identificar o servidor.", ephemeral: true });
+    }
 
-export async function openTicketThread(interaction, tipo) {
-  const name = `[TICKET] ${tipo} — ${interaction.user.username}`.slice(0, 90);
-  const thread = await interaction.channel.threads.create({
-    name,
-    autoArchiveDuration: 1440,
-    reason: `Ticket ${tipo} de ${interaction.user.tag}`
-  });
-  await thread.members.add(interaction.user.id).catch(() => {});
-  const logRaw = getConfiguredChannel(interaction.guild, "LOG_TICKETS", "LOG_TICKETS_NAME");
-  const logChan = pickTextTarget(logRaw);
-  await thread.send(`🎫 Ticket **${tipo}** aberto por ${interaction.user}. Um membro da staff responderá em breve.`);
-  if (logChan) await logChan.send(`📝 Ticket **${tipo}** criado por ${interaction.user} em ${interaction.channel}. Thread: ${thread}`);
-  return interaction.reply({ ephemeral: true, content: `Ticket **${tipo}** criado: ${thread.toString()}` });
+    const channelName = `ticket-${tipo}-${interaction.user.username}`
+      .toLowerCase()
+      .replace(/[^a-z0-9-_]/g, "-")
+      .slice(0, 90);
+
+    const channel = await guild.channels.create({
+      name: channelName,
+      type: ChannelType.GuildText,
+      parent: CONFIG.TICKETS_CATEGORY_ID,
+      permissionOverwrites: [
+        { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
+        { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] },
+        { id: CONFIG.STAFF_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages] }
+      ]
+    });
+
+    await channel.send({
+      content: `👋 Olá <@${interaction.user.id}>, que bom que você está aqui!
+
+` +
+        `Em breve um membro da nossa **staff** vai te auxiliar.
+` +
+        `👉 Descreva por favor **o que você necessita** e, se tiver algum **anexo**, já nos envie.`
+    });
+
+    await interaction.reply({ content: `✅ Seu ticket foi aberto: ${channel}`, ephemeral: true });
+  } catch (err) {
+    console.error("[TICKETS:ERR]", err);
+    try {
+      await interaction.reply({ content: "❌ Erro ao abrir o ticket. Verifique se o bot tem **Gerenciar Canais** e **Ver Canal** na categoria.", ephemeral: true });
+    } catch {}
+  }
 }

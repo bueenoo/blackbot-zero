@@ -1,41 +1,29 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
-import { log, warn } from "../utils/logger.js";
-import { pickTextTarget } from "../utils/textTarget.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, PermissionFlagsBits } from "discord.js";
+import { CONFIG } from "../config.js";
 
-export async function sendVerificationPanel(channel) {
-  const target = pickTextTarget(channel);
-  if (!target) {
-    warn("Canal de verificação não é de texto. Ajuste via /setchannels.");
-    return;
+/**
+ * Envia um painel simples de verificacão (opcional).
+ * Ajuste o canal via VERIFICATION_CHANNEL_ID no .env.
+ */
+export async function sendVerificationPanel(client) {
+  try {
+    if (!CONFIG.CHANNELS.VERIFICATION) return;
+
+    const channel = await client.channels.fetch(CONFIG.CHANNELS.VERIFICATION);
+    if (!channel || !channel.isTextBased()) {
+      console.warn("[BLACKBOT:WARN] Canal de verificação não é de texto ou não existe.");
+      return;
+    }
+
+    const row = new ActionRowBuilder().addComponents(
+      new ButtonBuilder().setCustomId("open_ticket_doacoes").setLabel("💰 Doações").setStyle(ButtonStyle.Primary),
+      new ButtonBuilder().setCustomId("open_ticket_denuncia").setLabel("🚨 Denúncia").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("open_ticket_suporte").setLabel("⚙️ Suporte Técnico").setStyle(ButtonStyle.Secondary)
+    );
+
+    await channel.send({ content: "🎫 **Abra um ticket privado** selecionando uma opção abaixo:", components: [row] });
+    console.log("[BLACKBOT] Painel de verificação enviado.");
+  } catch (err) {
+    console.error("[BLACKBOT:ERR] Falha ao enviar painel de verificação:", err);
   }
-  const embed = new EmbedBuilder()
-    .setTitle("Bem-vindo ao **Black**")
-    .setDescription("Escolha abaixo para iniciar seu acesso: RP (whitelist) ou PVE (SteamID).")
-    .setColor(0x111111);
-  const row = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("black_rp").setLabel("Black RP").setStyle(ButtonStyle.Primary),
-    new ButtonBuilder().setCustomId("black_pve").setLabel("Black PVE").setStyle(ButtonStyle.Secondary)
-  );
-  const row2 = new ActionRowBuilder().addComponents(
-    new ButtonBuilder().setCustomId("tickets_panel").setLabel("Abrir Painel de Tickets").setStyle(ButtonStyle.Success)
-  );
-  await target.send({ embeds: [embed], components: [row, row2] });
-  log("Painel de verificação enviado.");
-}
-
-export function buildWhitelistModal() {
-  const modal = new ModalBuilder().setCustomId("modal_whitelist_rp").setTitle("Whitelist RP — Black");
-  const nome = new TextInputBuilder().setCustomId("wl_nome").setLabel("Nome").setStyle(TextInputStyle.Short).setRequired(true);
-  const idade = new TextInputBuilder().setCustomId("wl_idade").setLabel("Idade").setStyle(TextInputStyle.Short).setRequired(true);
-  const steam = new TextInputBuilder().setCustomId("wl_steamid").setLabel("Steam ID (64)").setStyle(TextInputStyle.Short).setRequired(true);
-  const exp = new TextInputBuilder().setCustomId("wl_exp").setLabel("Experiência com RP (Sim/Não)").setStyle(TextInputStyle.Short).setRequired(true);
-  const historia = new TextInputBuilder().setCustomId("wl_hist").setLabel("História do personagem (até 250 chars)").setStyle(TextInputStyle.Paragraph).setRequired(true);
-  modal.addComponents(
-    new ActionRowBuilder().addComponents(nome),
-    new ActionRowBuilder().addComponents(idade),
-    new ActionRowBuilder().addComponents(steam),
-    new ActionRowBuilder().addComponents(exp),
-    new ActionRowBuilder().addComponents(historia),
-  );
-  return modal;
 }

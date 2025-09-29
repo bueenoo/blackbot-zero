@@ -1,18 +1,14 @@
 {
   "name": "blackbot-black-discord",
-  "version": "3.2.0",
+  "version": "3.2.2",
+  "description": "Blackbot - sistema de tickets privados e painel de verificação",
+  "main": "src/index.js",
   "type": "module",
-  "description": "Bot Discord Black com whitelist RP, PVE, tickets, /info e /setchannels para mapear canais por ID.",
-  "main": "index.js",
-  "engines": {
-    "node": ">=18.17.0"
-  },
   "scripts": {
-    "start": "node index.js"
+    "start": "node src/index.js"
   },
   "dependencies": {
     "discord.js": "^14.15.3",
-    "dotenv": "^16.4.5",
-    "ms": "^2.1.3"
+    "dotenv": "^16.4.5"
   }
 }

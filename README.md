@@ -1,10 +1,21 @@
-# Blackbot — Layout Black (names resolver)
+# Blackbot — Tickets Privados
 
-- Painéis: Verificação (RP), Cadastro PVE, Tickets
-- Whitelist RP (modal) → análise com Aprovar/Reprovar
-- PVE (modal) → cargo + log
-- /info restrito ao canal `inicio` (por nome)
-- /setup para definir IPs RP/PVE e publicar painéis
-- /postpanels para publicar painéis nos canais mapeados por nome
+Sistema de tickets que cria **um canal privado** por ticket dentro de uma categoria definida (somente o autor e a Staff veem).
 
-Última geração: 2025-09-29T19:30:20.411091
+## Variáveis (.env)
+
+```
+DISCORD_TOKEN=
+GUILD_ID=
+VERIFICATION_CHANNEL_ID=
+TICKETS_CATEGORY_ID=1401951450078117959
+STAFF_ROLE_ID=1401235779748892694
+```
+
+> Dê ao bot as permissões **Gerenciar Canais** e **Ver Canal** na categoria de tickets.
+
+## Rodando
+```bash
+npm i
+npm start
+```
