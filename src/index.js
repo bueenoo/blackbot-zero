@@ -1,5 +1,5 @@
 import "dotenv/config";
-import { Client, GatewayIntentBits, Partials, Routes, REST, SlashCommandBuilder } from "discord.js";
+import { Client, GatewayIntentBits, Partials, Routes, REST, SlashCommandBuilder, MessageFlags } from "discord.js";
 import { CONFIG } from "./config.js";
 import { openTicket } from "./handlers/tickets.js";
 import { sendVerificationPanel } from "./handlers/verification.js";
@@ -49,6 +49,15 @@ client.once("clientReady", async () => {
 });
 
 client.on("interactionCreate", async (interaction) => {
+  // Debug para ver o evento chegando e o customId
+  try {
+    console.log("[DEBUG interaction]", {
+      isButton: interaction.isButton?.(),
+      isCommand: interaction.isChatInputCommand?.(),
+      customId: interaction.customId,
+      channel: interaction.channel?.id
+    });
+  } catch {}
   try {
     if (interaction.isChatInputCommand()) {
       if (interaction.commandName === "ticket") {
@@ -56,7 +65,7 @@ client.on("interactionCreate", async (interaction) => {
         await openTicket(interaction, tipo);
       }
     } else if (interaction.isButton()) {
-      if (interaction.customId.startsWith("open_ticket_")) {
+      if (interaction.customId?.startsWith("open_ticket_")) {
         const tipo = interaction.customId.replace("open_ticket_", "");
         await openTicket(interaction, tipo);
       }
@@ -64,7 +73,7 @@ client.on("interactionCreate", async (interaction) => {
   } catch (err) {
     console.error("[INTERACTION ERROR]", err);
     if (interaction.isRepliable()) {
-      await interaction.reply({ content: "❌ Ocorreu um erro ao processar sua interação.", ephemeral: true });
+      await interaction.reply({ content: "❌ Ocorreu um erro ao processar sua interação.", flags: MessageFlags.Ephemeral });
     }
   }
 });
