@@ -1,8 +1,8 @@
 {
   "name": "blackbot-black-discord",
-  "version": "3.1.1",
+  "version": "3.2.0",
   "type": "module",
-  "description": "Bot Discord Black com whitelist RP, cadastro PVE, tickets e /info. Envio seguro para canais de texto.",
+  "description": "Bot Discord Black com whitelist RP, PVE, tickets, /info e /setchannels para mapear canais por ID.",
   "main": "index.js",
   "engines": {
     "node": ">=18.17.0"

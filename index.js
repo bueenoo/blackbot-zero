@@ -1,19 +1,16 @@
 import "dotenv/config";
-import {
-  Client, GatewayIntentBits, Partials, Collection,
-  Events
-} from "discord.js";
+import { Client, GatewayIntentBits, Partials, Collection, Events } from "discord.js";
 
-import { CONFIG } from "./src/config.js";
-import { log, warn, error } from "./src/utils/logger.js";
 import * as Info from "./src/commands/info.js";
 import * as Setup from "./src/commands/setup.js";
 import * as PostPanels from "./src/commands/postpanels.js";
-import { resolveChannel } from "./src/utils/resolve.js";
+import * as SetChannels from "./src/commands/setchannels.js";
+import { getConfiguredChannel } from "./src/utils/chanmap.js";
 import { sendVerificationPanel, buildWhitelistModal } from "./src/handlers/verification.js";
 import { handleWhitelistModal, handleWhitelistReview } from "./src/handlers/whitelist-rp.js";
 import { sendPvePanel, buildPveModal, handlePveModal } from "./src/handlers/pve-handler.js";
 import { sendTicketsPanel, openTicketThread } from "./src/handlers/tickets.js";
+import { error, log, warn } from "./src/utils/logger.js";
 
 const client = new Client({
   intents: [
@@ -31,6 +28,7 @@ client.commands = new Collection();
 client.commands.set(Info.data.name, Info);
 client.commands.set(Setup.data.name, Setup);
 client.commands.set(PostPanels.data.name, PostPanels);
+client.commands.set(SetChannels.data.name, SetChannels);
 
 client.once(Events.ClientReady, async (c) => {
   log(`✅ Bot online como ${c.user.tag}`);
@@ -38,17 +36,18 @@ client.once(Events.ClientReady, async (c) => {
     const guildId = process.env.GUILD_ID;
     if (guildId) {
       const guild = await client.guilds.fetch(guildId);
-      await guild.commands.set([Info.data.toJSON(), Setup.data.toJSON(), PostPanels.data.toJSON()]);
+      await guild.commands.set([Info.data.toJSON(), Setup.data.toJSON(), PostPanels.data.toJSON(), SetChannels.data.toJSON()]);
       log("Slash commands registrados no GUILD.");
-      const verif = resolveChannel(guild, CONFIG.CHANNELS.VERIFICACAO || CONFIG.CHANNEL_NAMES.VERIFICACAO_NAME);
-      const pve   = resolveChannel(guild, CONFIG.CHANNELS.PVE_REGISTRO || CONFIG.CHANNEL_NAMES.PVE_REGISTRO_NAME);
-      const tik   = resolveChannel(guild, CONFIG.CHANNELS.ABRIR_TICKET || CONFIG.CHANNEL_NAMES.ABRIR_TICKET_NAME);
+      // tenta autopostar nos canais configurados/persistidos
+      const verif = getConfiguredChannel(guild, "VERIFICACAO", "VERIFICACAO_NAME");
+      const pve   = getConfiguredChannel(guild, "PVE_REGISTRO", "PVE_REGISTRO_NAME");
+      const tik   = getConfiguredChannel(guild, "ABRIR_TICKET", "ABRIR_TICKET_NAME");
       if (verif) await sendVerificationPanel(verif);
       if (pve)   await sendPvePanel(pve);
       if (tik)   await sendTicketsPanel(tik);
     } else {
-      warn("GUILD_ID não definido — pulei auto-post. Use /postpanels.");
-      await client.application.commands.set([Info.data.toJSON(), Setup.data.toJSON(), PostPanels.data.toJSON()]);
+      warn("GUILD_ID não definido — comandos serão globais e sem autopost.");
+      await client.application.commands.set([Info.data.toJSON(), Setup.data.toJSON(), PostPanels.data.toJSON(), SetChannels.data.toJSON()]);
     }
   } catch (e) { error("Falha ao registrar comandos:", e); }
 });
@@ -63,7 +62,7 @@ client.on(Events.InteractionCreate, async (interaction) => {
       const id = interaction.customId;
       if (id === "black_rp") return interaction.showModal(buildWhitelistModal());
       if (id === "black_pve") {
-        const pveCh = resolveChannel(interaction.guild, CONFIG.CHANNELS.PVE_REGISTRO || CONFIG.CHANNEL_NAMES.PVE_REGISTRO_NAME);
+        const pveCh = getConfiguredChannel(interaction.guild, "PVE_REGISTRO", "PVE_REGISTRO_NAME");
         if (pveCh) await sendPvePanel(pveCh);
         return interaction.reply({ ephemeral: true, content: "Siga para o canal de cadastro PVE indicado." });
       }

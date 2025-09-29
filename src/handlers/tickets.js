@@ -1,14 +1,13 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "discord.js";
-import { CONFIG } from "../config.js";
-import { resolveChannel } from "../utils/resolve.js";
+import { getConfiguredChannel } from "../utils/chanmap.js";
 import { pickTextTarget } from "../utils/textTarget.js";
 
 export async function sendTicketsPanel(channel) {
   const target = pickTextTarget(channel);
   if (!target) return;
   const embed = new EmbedBuilder()
-    .setTitle(CONFIG.TEXTS.TICKETS_TITULO)
-    .setDescription(CONFIG.TEXTS.TICKETS_DESC)
+    .setTitle("Central de Atendimentos — Black")
+    .setDescription("Abra um ticket e nossa staff irá ajudá-lo.")
     .setColor(0x151515);
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("ticket_doacoes").setLabel("💰 Doações").setStyle(ButtonStyle.Success),
@@ -26,7 +25,7 @@ export async function openTicketThread(interaction, tipo) {
     reason: `Ticket ${tipo} de ${interaction.user.tag}`
   });
   await thread.members.add(interaction.user.id).catch(() => {});
-  const logRaw = resolveChannel(interaction.guild, CONFIG.CHANNELS.LOG_TICKETS || CONFIG.CHANNEL_NAMES.LOG_TICKETS_NAME);
+  const logRaw = getConfiguredChannel(interaction.guild, "LOG_TICKETS", "LOG_TICKETS_NAME");
   const logChan = pickTextTarget(logRaw);
   await thread.send(`🎫 Ticket **${tipo}** aberto por ${interaction.user}. Um membro da staff responderá em breve.`);
   if (logChan) await logChan.send(`📝 Ticket **${tipo}** criado por ${interaction.user} em ${interaction.channel}. Thread: ${thread}`);

@@ -1,10 +1,9 @@
 import { SlashCommandBuilder, PermissionFlagsBits } from "discord.js";
 import { loadConfig, saveConfig } from "../utils/store.js";
-import { CONFIG } from "../config.js";
+import { getConfiguredChannel } from "../utils/chanmap.js";
 import { sendVerificationPanel } from "../handlers/verification.js";
 import { sendPvePanel } from "../handlers/pve-handler.js";
 import { sendTicketsPanel } from "../handlers/tickets.js";
-import { resolveChannel } from "../utils/resolve.js";
 
 export const data = new SlashCommandBuilder()
   .setName("setup")
@@ -26,9 +25,9 @@ export async function execute(interaction) {
 
   if (postar) {
     const g = interaction.guild;
-    const verif = resolveChannel(g, CONFIG.CHANNELS.VERIFICACAO || CONFIG.CHANNEL_NAMES.VERIFICACAO_NAME);
-    const pveCh = resolveChannel(g, CONFIG.CHANNELS.PVE_REGISTRO || CONFIG.CHANNEL_NAMES.PVE_REGISTRO_NAME);
-    const tik = resolveChannel(g, CONFIG.CHANNELS.ABRIR_TICKET || CONFIG.CHANNEL_NAMES.ABRIR_TICKET_NAME);
+    const verif = getConfiguredChannel(g, "VERIFICACAO", "VERIFICACAO_NAME");
+    const pveCh = getConfiguredChannel(g, "PVE_REGISTRO", "PVE_REGISTRO_NAME");
+    const tik = getConfiguredChannel(g, "ABRIR_TICKET", "ABRIR_TICKET_NAME");
     if (verif) await sendVerificationPanel(verif);
     if (pveCh) await sendPvePanel(pveCh);
     if (tik) await sendTicketsPanel(tik);

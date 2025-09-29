@@ -1,18 +1,16 @@
 import { SlashCommandBuilder, EmbedBuilder } from "discord.js";
 import process from "node:process";
-import { CONFIG } from "../config.js";
 import { loadConfig } from "../utils/store.js";
-import { resolveChannel } from "../utils/resolve.js";
+import { getConfiguredChannel } from "../utils/chanmap.js";
 
 export const data = new SlashCommandBuilder()
   .setName("info")
   .setDescription("Mostra IPs dos servidores e membros online");
 
 export async function execute(interaction) {
-  const allowed = CONFIG.CHANNELS.INFO_COMMAND_CHANNEL || CONFIG.CHANNEL_NAMES.INFO_COMMAND_CHANNEL_NAME;
-  const ch = resolveChannel(interaction.guild, allowed);
-  if (allowed && ch && interaction.channelId !== ch.id) {
-    return interaction.reply({ ephemeral: true, content: "Use este comando no canal autorizado." });
+  const allowed = getConfiguredChannel(interaction.guild, "INFO_COMMAND_CHANNEL", "INFO_COMMAND_CHANNEL_NAME");
+  if (allowed && interaction.channelId !== allowed.id) {
+    return interaction.reply({ ephemeral: true, content: `Use este comando em ${allowed}.` });
   }
 
   const persisted = loadConfig();
