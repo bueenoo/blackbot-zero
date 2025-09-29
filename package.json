@@ -1,0 +1,19 @@
+{
+  "name": "blackbot-zero",
+  "version": "3.0.0",
+  "type": "module",
+  "description": "Discord bot para o servidor Black (RP e PVE): whitelist, registro PVE, tickets, /info, verificação.",
+  "main": "index.js",
+  "engines": {
+    "node": ">=18.17.0"
+  },
+  "scripts": {
+    "start": "node index.js",
+    "dev": "node --trace-warnings index.js"
+  },
+  "dependencies": {
+    "discord.js": "^14.15.3",
+    "dotenv": "^16.4.5",
+    "ms": "^2.1.3"
+  }
+}
