@@ -7,6 +7,7 @@ import {
 import { CONFIG } from "./src/config.js";
 import { log, warn, error } from "./src/utils/logger.js";
 import * as Info from "./src/commands/info.js";
+import * as Setup from "./src/commands/setup.js";
 import { sendVerificationPanel, buildWhitelistModal } from "./src/handlers/verification.js";
 import { handleWhitelistModal, handleWhitelistReview } from "./src/handlers/whitelist-rp.js";
 import { sendPvePanel, buildPveModal, handlePveModal } from "./src/handlers/pve-handler.js";
@@ -26,6 +27,7 @@ const client = new Client({
 
 client.commands = new Collection();
 client.commands.set(Info.data.name, Info);
+client.commands.set(Setup.data.name, Setup);
 
 client.once(Events.ClientReady, async (c) => {
   log(`✅ Bot online como ${c.user.tag}`);
@@ -35,7 +37,7 @@ client.once(Events.ClientReady, async (c) => {
     const guildId = process.env.GUILD_ID;
     if (guildId) {
       const guild = await client.guilds.fetch(guildId);
-      await guild.commands.set([Info.data.toJSON()]);
+      await guild.commands.set([Info.data.toJSON(), Setup.data.toJSON()]);
       log("Slash commands registrados no GUILD.");
     } else {
       warn("GUILD_ID não definido — comandos não registrados.");
