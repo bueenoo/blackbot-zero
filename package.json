@@ -1,8 +1,8 @@
 {
-  "name": "blackbot-zero",
-  "version": "3.0.0",
+  "name": "blackbot-black-discord",
+  "version": "3.1.0",
   "type": "module",
-  "description": "Discord bot para o servidor Black (RP e PVE): whitelist, registro PVE, tickets, /info, verificação.",
+  "description": "Bot Discord Black com whitelist RP, cadastro PVE, tickets e /info. Resolucao por NOME de canais.",
   "main": "index.js",
   "engines": {
     "node": ">=18.17.0"
