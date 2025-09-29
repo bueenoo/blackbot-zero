@@ -1,8 +1,15 @@
-import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle } from "discord.js";
+import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder, ModalBuilder, TextInputBuilder, TextInputStyle, ChannelType } from "discord.js";
 import { CONFIG } from "../config.js";
-import { log } from "../utils/logger.js";
+import { log, warn } from "../utils/logger.js";
+import { pickTextTarget } from "../utils/textTarget.js";
 
 export async function sendVerificationPanel(channel) {
+  const target = pickTextTarget(channel);
+  if (!target) {
+    warn("Canal de verificação não é de texto. Ajuste CONFIG.CHANNELS/CHANNEL_NAMES.");
+    return;
+  }
+
   const embed = new EmbedBuilder()
     .setTitle(CONFIG.TEXTS.VERIFICACAO_TITULO)
     .setDescription(CONFIG.TEXTS.VERIFICACAO_DESC)
@@ -16,7 +23,7 @@ export async function sendVerificationPanel(channel) {
     new ButtonBuilder().setCustomId("tickets_panel").setLabel("Abrir Painel de Tickets").setStyle(ButtonStyle.Success)
   );
 
-  await channel.send({ embeds: [embed], components: [row, row2] });
+  await target.send({ embeds: [embed], components: [row, row2] });
   log("Painel de verificação enviado.");
 }
 

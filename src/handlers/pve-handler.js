@@ -2,8 +2,11 @@ import { EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, ModalBuilde
 import { CONFIG } from "../config.js";
 import { isValidSteamId64 } from "../utils/validate.js";
 import { resolveChannel } from "../utils/resolve.js";
+import { pickTextTarget } from "../utils/textTarget.js";
 
 export async function sendPvePanel(channel) {
+  const target = pickTextTarget(channel);
+  if (!target) return;
   const embed = new EmbedBuilder()
     .setTitle("Cadastro PVE — Black")
     .setDescription("Clique no botão abaixo e informe **sua SteamID64** para receber o cargo PVE.")
@@ -11,7 +14,7 @@ export async function sendPvePanel(channel) {
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("pve_cadastrar").setLabel("Enviar SteamID64").setStyle(ButtonStyle.Primary)
   );
-  await channel.send({ embeds: [embed], components: [row] });
+  await target.send({ embeds: [embed], components: [row] });
 }
 
 export function buildPveModal() {
@@ -31,7 +34,8 @@ export async function handlePveModal(interaction) {
   const member = interaction.member;
   await member.roles.add(role).catch(()=>{});
 
-  const logChan = resolveChannel(interaction.guild, CONFIG.CHANNELS.LOG_PVE || CONFIG.CHANNEL_NAMES.LOG_PVE_NAME);
+  const logRaw = resolveChannel(interaction.guild, CONFIG.CHANNELS.LOG_PVE || CONFIG.CHANNEL_NAMES.LOG_PVE_NAME);
+  const logChan = pickTextTarget(logRaw);
   if (logChan) {
     const when = new Date().toLocaleString(process.env.LOG_TIMEZONE || "America/Argentina/Buenos_Aires");
     await logChan.send(`🧾 Registro PVE — **Usuário:** ${interaction.user} — **SteamID64:** \`${steam}\` — **Data:** ${when}`);

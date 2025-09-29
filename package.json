@@ -1,15 +1,14 @@
 {
   "name": "blackbot-black-discord",
-  "version": "3.1.0",
+  "version": "3.1.1",
   "type": "module",
-  "description": "Bot Discord Black com whitelist RP, cadastro PVE, tickets e /info. Resolucao por NOME de canais.",
+  "description": "Bot Discord Black com whitelist RP, cadastro PVE, tickets e /info. Envio seguro para canais de texto.",
   "main": "index.js",
   "engines": {
     "node": ">=18.17.0"
   },
   "scripts": {
-    "start": "node index.js",
-    "dev": "node --trace-warnings index.js"
+    "start": "node index.js"
   },
   "dependencies": {
     "discord.js": "^14.15.3",

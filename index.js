@@ -1,7 +1,7 @@
 import "dotenv/config";
 import {
   Client, GatewayIntentBits, Partials, Collection,
-  Events, ActionRowBuilder, ButtonBuilder, ButtonStyle
+  Events
 } from "discord.js";
 
 import { CONFIG } from "./src/config.js";
@@ -40,7 +40,6 @@ client.once(Events.ClientReady, async (c) => {
       const guild = await client.guilds.fetch(guildId);
       await guild.commands.set([Info.data.toJSON(), Setup.data.toJSON(), PostPanels.data.toJSON()]);
       log("Slash commands registrados no GUILD.");
-      // autopost painéis se achar os canais
       const verif = resolveChannel(guild, CONFIG.CHANNELS.VERIFICACAO || CONFIG.CHANNEL_NAMES.VERIFICACAO_NAME);
       const pve   = resolveChannel(guild, CONFIG.CHANNELS.PVE_REGISTRO || CONFIG.CHANNEL_NAMES.PVE_REGISTRO_NAME);
       const tik   = resolveChannel(guild, CONFIG.CHANNELS.ABRIR_TICKET || CONFIG.CHANNEL_NAMES.ABRIR_TICKET_NAME);
@@ -48,7 +47,8 @@ client.once(Events.ClientReady, async (c) => {
       if (pve)   await sendPvePanel(pve);
       if (tik)   await sendTicketsPanel(tik);
     } else {
-      warn("GUILD_ID não definido — comandos não registrados.");
+      warn("GUILD_ID não definido — pulei auto-post. Use /postpanels.");
+      await client.application.commands.set([Info.data.toJSON(), Setup.data.toJSON(), PostPanels.data.toJSON()]);
     }
   } catch (e) { error("Falha ao registrar comandos:", e); }
 });
@@ -64,15 +64,12 @@ client.on(Events.InteractionCreate, async (interaction) => {
       if (id === "black_rp") return interaction.showModal(buildWhitelistModal());
       if (id === "black_pve") {
         const pveCh = resolveChannel(interaction.guild, CONFIG.CHANNELS.PVE_REGISTRO || CONFIG.CHANNEL_NAMES.PVE_REGISTRO_NAME);
-        if (pveCh) await pveCh.send(`${interaction.user}, use o botão abaixo para enviar sua SteamID64.`);
+        if (pveCh) await sendPvePanel(pveCh);
         return interaction.reply({ ephemeral: true, content: "Siga para o canal de cadastro PVE indicado." });
       }
       if (id === "pve_cadastrar") return interaction.showModal(buildPveModal());
       if (id.startsWith("wl_approve") || id.startsWith("wl_reject")) return handleWhitelistReview(interaction);
-      if (id === "tickets_panel") {
-        await sendTicketsPanel(interaction.channel);
-        return interaction.reply({ ephemeral: true, content: "Painel de tickets enviado." });
-      }
+      if (id === "tickets_panel") { await sendTicketsPanel(interaction.channel); return interaction.reply({ ephemeral: true, content: "Painel de tickets enviado." }); }
       if (id === "ticket_doacoes") return openTicketThread(interaction, "Doações");
       if (id === "ticket_denuncia") return openTicketThread(interaction, "Denúncia");
       if (id === "ticket_suporte")  return openTicketThread(interaction, "Suporte Técnico");

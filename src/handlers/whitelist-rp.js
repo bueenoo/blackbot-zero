@@ -2,6 +2,7 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder } from "disc
 import { CONFIG } from "../config.js";
 import { isValidSteamId64, clampText } from "../utils/validate.js";
 import { resolveChannel } from "../utils/resolve.js";
+import { pickTextTarget } from "../utils/textTarget.js";
 
 export async function handleWhitelistModal(interaction) {
   const nome = interaction.fields.getTextInputValue("wl_nome");
@@ -14,9 +15,10 @@ export async function handleWhitelistModal(interaction) {
     return interaction.reply({ ephemeral: true, content: "SteamID64 inválido. Deve começar com 7656 e ter 17 dígitos." });
   }
 
-  const staffChannel = resolveChannel(interaction.guild, CONFIG.CHANNELS.STAFF_ANALISE_RP || CONFIG.CHANNEL_NAMES.STAFF_ANALISE_RP_NAME);
+  const staffRaw = resolveChannel(interaction.guild, CONFIG.CHANNELS.STAFF_ANALISE_RP || CONFIG.CHANNEL_NAMES.STAFF_ANALISE_RP_NAME);
+  const staffChannel = pickTextTarget(staffRaw);
   if (!staffChannel) {
-    return interaction.reply({ ephemeral: true, content: "Canal de análise não encontrado. Avise a administração." });
+    return interaction.reply({ ephemeral: true, content: "Canal de análise não é de texto ou não encontrado." });
   }
 
   const embed = new EmbedBuilder()
@@ -37,10 +39,10 @@ export async function handleWhitelistModal(interaction) {
 
   await staffChannel.send({ embeds: [embed], components: [new ActionRowBuilder().addComponents(approve, reject)] });
 
-  const espera = resolveChannel(interaction.guild, CONFIG.CHANNELS.ESPERA_RP || CONFIG.CHANNEL_NAMES.ESPERA_RP_NAME);
-  if (espera) {
-    await espera.send(`📩 ${interaction.user} sua whitelist foi enviada. Aguarde análise da staff.`);
-  }
+  const esperaRaw = resolveChannel(interaction.guild, CONFIG.CHANNELS.ESPERA_RP || CONFIG.CHANNEL_NAMES.ESPERA_RP_NAME);
+  const espera = pickTextTarget(esperaRaw);
+  if (espera) await espera.send(`📩 ${interaction.user} sua whitelist foi enviada. Aguarde análise da staff.`);
+
   return interaction.reply({ ephemeral: true, content: "Whitelist enviada com sucesso! Aguarde a análise." });
 }
 
@@ -56,7 +58,8 @@ export async function handleWhitelistReview(interaction) {
     await interaction.reply({ content: `✅ Aprovado: ${member}. Cargo **${CONFIG.ROLES.RP}** atribuído.` });
     try { await member.send("✅ Você foi aprovado na whitelist RP do Black. Bom jogo!"); } catch {}
   } else if (action === "wl_reject") {
-    const reprovados = resolveChannel(interaction.guild, CONFIG.CHANNELS.REPROVADOS_RP || CONFIG.CHANNEL_NAMES.REPROVADOS_RP_NAME);
+    const reprovadosRaw = resolveChannel(interaction.guild, CONFIG.CHANNELS.REPROVADOS_RP || CONFIG.CHANNEL_NAMES.REPROVADOS_RP_NAME);
+    const reprovados = pickTextTarget(reprovadosRaw);
     await interaction.reply({ ephemeral: true, content: "Reprovação registrada." });
     if (reprovados) await reprovados.send(`❌ <@${userId}> sua whitelist foi reprovada. Tente novamente futuramente.`);
     try { await member.send("❌ Sua whitelist RP no Black foi reprovada. Você pode tentar novamente no futuro."); } catch {}
