@@ -3,6 +3,27 @@ import { Client, GatewayIntentBits, Partials, Routes, REST, SlashCommandBuilder,
 import { CONFIG } from "./config.js";
 import { openTicket } from "./handlers/tickets.js";
 import { sendVerificationPanel } from "./handlers/verification.js";
+/**
+ * Pequeno servidor HTTP para manter o container vivo no Railway
+ * (caso a plataforma exija escutar em PORT para healthchecks).
+ */
+import http from "http";
+const PORT = process.env.PORT || 3000;
+http.createServer((_, res) => {
+  res.writeHead(200, { "Content-Type": "text/plain" });
+  res.end("Blackbot OK");
+}).listen(PORT, () => console.log(`[HEALTH] HTTP on :${PORT}`));
+
+// Manejo gracioso de SIGTERM/SIGINT (log claro)
+process.on("SIGTERM", () => {
+  console.log("[PROCESS] SIGTERM recebido. Encerrando...");
+  process.exit(0);
+});
+process.on("SIGINT", () => {
+  console.log("[PROCESS] SIGINT recebido. Encerrando...");
+  process.exit(0);
+});
+
 
 const client = new Client({
   intents: [

@@ -1,0 +1,15 @@
+[build]
+builder = "NIXPACKS"
+
+[deploy]
+numReplicas = 1
+restartPolicyType = "ON_FAILURE"
+healthcheckPath = "/"
+healthcheckTimeout = 100
+
+[start]
+cmd = "node src/index.js"
+
+[variables]
+# Evita que a plataforma tente colocar a app para dormir
+RAILWAY_DISABLE_SLEEP = "true"
