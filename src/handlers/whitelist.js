@@ -1,4 +1,3 @@
-
 import {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder,
   ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags
@@ -15,8 +14,10 @@ export async function sendWelcomePanel(client, channelOverride = null) {
   const emb = new EmbedBuilder()
     .setTitle("Bem-vindo(a) ao Black!")
     .setDescription("Escolha abaixo o **servidor** que deseja jogar.\n\n▶️ **RP** abre a Whitelist para preencher.\n\nSe precisar de ajuda, abra um **ticket** no canal de suporte.")
-    .setImage(process.env.WELCOME_IMAGE_URL || "https://i.imgur.com/9x5m9bt.jpeg")
     .setColor(0x2b2d31);
+
+  const img = process.env.WELCOME_IMAGE_URL?.trim();
+  if (img) emb.setImage(img);
 
   const row = new ActionRowBuilder().addComponents(
     new ButtonBuilder().setCustomId("wl_start").setLabel("🎭 Jogar no Black RP (WL)").setStyle(ButtonStyle.Success),
@@ -35,6 +36,7 @@ export async function sendWelcomePanel(client, channelOverride = null) {
   return { ok: false, reason: "Canal inválido para boas-vindas" };
 }
 
+/** Abrir modal de WL */
 export async function handleWlStart(interaction) {
   const modal = new ModalBuilder().setCustomId("wl_modal").setTitle("Nova WL • PT");
   const nome = new TextInputBuilder().setCustomId("wl_nome").setLabel("Nome").setStyle(TextInputStyle.Short).setRequired(true);
@@ -52,6 +54,7 @@ export async function handleWlStart(interaction) {
   await interaction.showModal(modal);
 }
 
+/** Envia a WL para o canal da staff (texto normal ou forum) */
 export async function handleWlSubmit(interaction) {
   const uid = interaction.user.id;
   const nome = interaction.fields.getTextInputValue("wl_nome");
@@ -62,8 +65,8 @@ export async function handleWlSubmit(interaction) {
 
   const reviewId = CONFIG.WL_STAFF_REVIEW_CHANNEL_ID;
   const ch = await interaction.guild.channels.fetch(reviewId).catch(() => null);
-  if (!ch || !ch.isTextBased?.()) {
-    return interaction.reply({ content: "❌ Canal de review não encontrado/compatível.", flags: MessageFlags.Ephemeral });
+  if (!ch) {
+    return interaction.reply({ content: "❌ Canal de review não encontrado. Verifique WL_STAFF_REVIEW_CHANNEL_ID.", flags: MessageFlags.Ephemeral });
   }
 
   const emb = new EmbedBuilder()
@@ -76,7 +79,21 @@ export async function handleWlSubmit(interaction) {
     new ButtonBuilder().setCustomId(`wl_reject:${uid}`).setLabel("❌ Reprovar").setStyle(ButtonStyle.Danger)
   );
 
-  await ch.send({ embeds: [emb], components: [row] });
+  try {
+    if (ch.isTextBased?.()) {
+      await ch.send({ embeds: [emb], components: [row] });
+    } else if (ch.type == 15) { // GuildForum
+      await ch.threads.create({
+        name: `WL • ${interaction.user.username} (${uid})`,
+        message: { embeds: [emb], components: [row] }
+      });
+    } else {
+      return interaction.reply({ content: "❌ Canal de review não é texto nem fórum. Troque para um canal compatível.", flags: MessageFlags.Ephemeral });
+    }
+  } catch {
+    return interaction.reply({ content: `❌ Sem permissão para enviar no canal ${reviewId}.`, flags: MessageFlags.Ephemeral });
+  }
+
   return interaction.reply({ content: "✅ Sua WL foi enviada para análise.", flags: MessageFlags.Ephemeral });
 }
 

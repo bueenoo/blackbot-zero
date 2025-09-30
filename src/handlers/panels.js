@@ -1,4 +1,3 @@
-
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { CONFIG } from "../config.js";
 
@@ -10,7 +9,7 @@ export async function sendTicketPanel(client, channelOverride = null) {
       : (CONFIG.CHANNELS.VERIFICATION ? await client.channels.fetch(CONFIG.CHANNELS.VERIFICATION) : null);
 
     if (!channel) return { ok: false, reason: "Canal não encontrado" };
-    const isForum = channel.type === 15;
+    const isForum = channel.type === 15; // ChannelType.GuildForum
     const isText = channel.isTextBased?.();
 
     if (!isText && !isForum) return { ok: false, reason: "Canal inválido para tickets" };

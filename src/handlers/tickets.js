@@ -1,4 +1,3 @@
-
 import { ChannelType, PermissionFlagsBits, MessageFlags, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { CONFIG } from "../config.js";
 
@@ -42,7 +41,7 @@ export async function openTicket(interaction, tipo) {
     );
     await channel.send({ content: `👋 Olá <@${interaction.user.id}>, que bom que você está aqui!\n\nEm breve um membro da nossa **staff** vai te auxiliar.\n👉 Descreva por favor **o que você necessita** e, se tiver algum **anexo**, já nos envie.`, components: [row] });
 
-    // Aviso staff (Forum ok)
+    // Aviso staff (Forum ok; não altera comportamento em canal de texto)
     if (CONFIG.STAFF_ALERT_CHANNEL_ID) {
       try {
         const alertCh = await guild.channels.fetch(CONFIG.STAFF_ALERT_CHANNEL_ID);
