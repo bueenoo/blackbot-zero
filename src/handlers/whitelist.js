@@ -5,12 +5,12 @@ import {
 } from "discord.js";
 import { CONFIG } from "../config.js";
 
-/** Painel de boas-vindas com imagem + escolha de servidor (RP abre WL) */
+/** Painel de boas-vindas (suporta Forum) */
 export async function sendWelcomePanel(client, channelOverride = null) {
   const channelId = channelOverride || CONFIG.WELCOME_CHANNEL_ID;
   if (!channelId) return { ok: false, reason: "WELCOME_CHANNEL_ID não configurado" };
   const ch = await client.channels.fetch(channelId).catch(() => null);
-  if (!ch || !ch.isTextBased()) return { ok: false, reason: "Canal inválido para boas-vindas" };
+  if (!ch) return { ok: false, reason: "Canal não encontrado" };
 
   const emb = new EmbedBuilder()
     .setTitle("Bem-vindo(a) ao Black!")
@@ -23,11 +23,18 @@ export async function sendWelcomePanel(client, channelOverride = null) {
     new ButtonBuilder().setCustomId("pve_info").setLabel("🛡️ Jogar no PVE").setStyle(ButtonStyle.Secondary)
   );
 
-  await ch.send({ embeds: [emb], components: [row] });
-  return { ok: true, channelId: ch.id };
+  const isForum = ch.type === 15;
+  if (ch.isTextBased?.()) {
+    await ch.send({ embeds: [emb], components: [row] });
+    return { ok: true, channelId: ch.id };
+  }
+  if (isForum) {
+    const thread = await ch.threads.create({ name: "Boas-vindas", message: { embeds: [emb], components: [row] } });
+    return { ok: true, channelId: ch.id, threadId: thread.id };
+  }
+  return { ok: false, reason: "Canal inválido para boas-vindas" };
 }
 
-/** Abrir modal de WL */
 export async function handleWlStart(interaction) {
   const modal = new ModalBuilder().setCustomId("wl_modal").setTitle("Nova WL • PT");
   const nome = new TextInputBuilder().setCustomId("wl_nome").setLabel("Nome").setStyle(TextInputStyle.Short).setRequired(true);
@@ -45,7 +52,6 @@ export async function handleWlStart(interaction) {
   await interaction.showModal(modal);
 }
 
-/** Envia a WL para o canal da staff */
 export async function handleWlSubmit(interaction) {
   const uid = interaction.user.id;
   const nome = interaction.fields.getTextInputValue("wl_nome");
@@ -56,8 +62,8 @@ export async function handleWlSubmit(interaction) {
 
   const reviewId = CONFIG.WL_STAFF_REVIEW_CHANNEL_ID;
   const ch = await interaction.guild.channels.fetch(reviewId).catch(() => null);
-  if (!ch || !ch.isTextBased()) {
-    return interaction.reply({ content: "❌ Canal de review não encontrado.", flags: MessageFlags.Ephemeral });
+  if (!ch || !ch.isTextBased?.()) {
+    return interaction.reply({ content: "❌ Canal de review não encontrado/compatível.", flags: MessageFlags.Ephemeral });
   }
 
   const emb = new EmbedBuilder()
@@ -71,18 +77,7 @@ export async function handleWlSubmit(interaction) {
   );
 
   await ch.send({ embeds: [emb], components: [row] });
-  await grantPendingAccess(interaction.guild, uid);
   return interaction.reply({ content: "✅ Sua WL foi enviada para análise.", flags: MessageFlags.Ephemeral });
-}
-
-async function grantPendingAccess(guild, userId) {
-  const targets = [process.env.WL_NOTIFY_APPROVED_CHANNEL_ID, process.env.WL_NOTIFY_REJECTED_CHANNEL_ID].filter(Boolean);
-  for (const cid of targets) {
-    try {
-      const c = await guild.channels.fetch(cid);
-      if (c && c.isTextBased()) await c.permissionOverwrites.edit(userId, { ViewChannel: true });
-    } catch {}
-  }
 }
 
 export async function approveWl(interaction, targetUserId) {
@@ -95,12 +90,12 @@ export async function approveWl(interaction, targetUserId) {
     if (process.env.WL_APPROVED_ROLE_ID) await member.roles.add(process.env.WL_APPROVED_ROLE_ID).catch(() => {});
     if (process.env.WL_NOTIFY_APPROVED_CHANNEL_ID) {
       const c = await interaction.guild.channels.fetch(process.env.WL_NOTIFY_APPROVED_CHANNEL_ID).catch(() => null);
-      if (c?.isTextBased()) {
-        await c.send({
-          content: `🎉 Parabéns <@${targetUserId}>! Sua **Whitelist** foi **aprovada**!`,
-          embeds: [{ image: { url: process.env.CONGRATS_GIF_URL || "https://media.tenor.com/6zvG7v0QF0cAAAAC/dayz.gif" }, color: 0x57f287 }]
-        });
-      }
+      const payload = {
+        content: `🎉 Parabéns <@${targetUserId}>! Sua **Whitelist** foi **aprovada**!`,
+        embeds: [{ image: { url: process.env.CONGRATS_GIF_URL || "https://media.tenor.com/6zvG7v0QF0cAAAAC/dayz.gif" }, color: 0x57f287 }]
+      };
+      if (c?.isTextBased?.()) await c.send(payload);
+      else if (c?.type === 15) await c.threads.create({ name: `WL aprovada - ${targetUserId}`, message: payload });
     }
     await interaction.editReply("✅ WL aprovada.");
   } catch {
@@ -123,9 +118,9 @@ export async function submitRejectReason(interaction, targetUserId) {
   const redo = process.env.WELCOME_CHANNEL_ID ? `<#${process.env.WELCOME_CHANNEL_ID}>` : "o canal de entrada";
   if (process.env.WL_NOTIFY_REJECTED_CHANNEL_ID) {
     const c = await interaction.guild.channels.fetch(process.env.WL_NOTIFY_REJECTED_CHANNEL_ID).catch(() => null);
-    if (c?.isTextBased()) {
-      await c.send({ content: `⚠️ <@${targetUserId}> sua **WL foi reprovada**.\n**Motivo:** ${reason}\nPor favor, refaça sua WL em ${redo}.` });
-    }
+    const payload = { content: `⚠️ <@${targetUserId}> sua **WL foi reprovada**.\n**Motivo:** ${reason}\nPor favor, refaça sua WL em ${redo}.` };
+    if (c?.isTextBased?.()) await c.send(payload);
+    else if (c?.type === 15) await c.threads.create({ name: `WL reprovada - ${targetUserId}`, message: payload });
   }
-  await interaction.reply({ content: "✅ Reprovação enviado.", flags: MessageFlags.Ephemeral });
+  await interaction.reply({ content: "✅ Reprovação enviada.", flags: MessageFlags.Ephemeral });
 }

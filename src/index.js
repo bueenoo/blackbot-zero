@@ -31,19 +31,19 @@ client.once("clientReady", async () => {
     const cmdPainel = new SlashCommandBuilder()
       .setName("painel")
       .setDescription("Instalar o painel de tickets em um canal")
-      .addChannelOption(o => o.setName("canal").setDescription("Canal de texto").addChannelTypes(ChannelType.GuildText).setRequired(true))
+      .addChannelOption(o => o.setName("canal").setDescription("Canal").addChannelTypes(ChannelType.GuildText, ChannelType.GuildForum, ChannelType.GuildAnnouncement).setRequired(true))
       .addBooleanOption(o => o.setName("limpar").setDescription("Apagar painéis antigos do bot").setRequired(false));
 
     const cmdInstalarTodos = new SlashCommandBuilder()
       .setName("instalar_paineis")
       .setDescription("Instala todos os painéis (Tickets + Boas-vindas/WL)")
-      .addChannelOption(o => o.setName("tickets").setDescription("Canal para painel de Tickets").addChannelTypes(ChannelType.GuildText).setRequired(true))
-      .addChannelOption(o => o.setName("boasvindas").setDescription("Canal para painel de Boas-vindas/WL").addChannelTypes(ChannelType.GuildText).setRequired(true));
+      .addChannelOption(o => o.setName("tickets").setDescription("Canal para painel de Tickets").addChannelTypes(ChannelType.GuildText, ChannelType.GuildForum, ChannelType.GuildAnnouncement).setRequired(true))
+      .addChannelOption(o => o.setName("boasvindas").setDescription("Canal para painel de Boas-vindas/WL").addChannelTypes(ChannelType.GuildText, ChannelType.GuildForum, ChannelType.GuildAnnouncement).setRequired(true));
 
     const cmdReWelcome = new SlashCommandBuilder()
       .setName("reinstalar_welcome")
       .setDescription("Reinstala o painel de Boas-vindas/WL em um canal")
-      .addChannelOption(o => o.setName("canal").setDescription("Canal de texto").addChannelTypes(ChannelType.GuildText).setRequired(true))
+      .addChannelOption(o => o.setName("canal").setDescription("Canal").addChannelTypes(ChannelType.GuildText, ChannelType.GuildForum, ChannelType.GuildAnnouncement).setRequired(true))
       .addBooleanOption(o => o.setName("limpar").setDescription("Apagar painéis antigos do bot").setRequired(false));
 
     await rest.put(Routes.applicationGuildCommands(client.user.id, CONFIG.GUILD_ID), { body: [cmdTicket.toJSON(), cmdPainel.toJSON(), cmdInstalarTodos.toJSON(), cmdReWelcome.toJSON()] });
@@ -68,7 +68,7 @@ client.on("interactionCreate", async (interaction) => {
         const canal = interaction.options.getChannel("canal");
         const limpar = interaction.options.getBoolean("limpar") || false;
         await interaction.reply({ content: "⏳ Instalando painel...", flags: MessageFlags.Ephemeral });
-        if (limpar) {
+        if (limpar && canal.isTextBased?.()) {
           try {
             const msgs = await canal.messages.fetch({ limit: 50 });
             const toDelete = msgs.filter(m => m.author?.id === interaction.client.user.id && (m.components?.length || (m.content || '').includes("Central de Atendimentos")));
@@ -92,7 +92,7 @@ client.on("interactionCreate", async (interaction) => {
         const canal = interaction.options.getChannel("canal");
         const limpar = interaction.options.getBoolean("limpar") || false;
         await interaction.reply({ content: "⏳ Reinstalando painel de boas-vindas...", flags: MessageFlags.Ephemeral });
-        if (limpar) {
+        if (limpar && canal.isTextBased?.()) {
           try {
             const msgs = await canal.messages.fetch({ limit: 50 });
             const toDelete = msgs.filter(m => m.author?.id === interaction.client.user.id && (m.components?.length || (m.embeds?.[0]?.title || '').includes("Bem-vindo(a) ao Black!") || (m.content || '').includes("Bem-vindo(a) ao Black!")));

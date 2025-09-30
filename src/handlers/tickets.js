@@ -40,17 +40,18 @@ export async function openTicket(interaction, tipo) {
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("ticket_close").setLabel("🔒 Fechar").setStyle(ButtonStyle.Secondary)
     );
-    await channel.send({
-      content: `👋 Olá <@${interaction.user.id}>, que bom que você está aqui!\n\nEm breve um membro da nossa **staff** vai te auxiliar.\n👉 Descreva por favor **o que você necessita** e, se tiver algum **anexo**, já nos envie.`,
-      components: [row]
-    });
+    await channel.send({ content: `👋 Olá <@${interaction.user.id}>, que bom que você está aqui!\n\nEm breve um membro da nossa **staff** vai te auxiliar.\n👉 Descreva por favor **o que você necessita** e, se tiver algum **anexo**, já nos envie.`, components: [row] });
 
+    // Aviso staff (Forum ok)
     if (CONFIG.STAFF_ALERT_CHANNEL_ID) {
       try {
         const alertCh = await guild.channels.fetch(CONFIG.STAFF_ALERT_CHANNEL_ID);
-        if (alertCh?.isTextBased()) await alertCh.send({ content: `🆕 **Ticket aberto** (${tipo}) por <@${interaction.user.id}> em ${channel}` });
-      } catch {}
+        const payload = { content: `🆕 **Ticket aberto** (${tipo}) por <@${interaction.user.id}> em <#${channel.id}>` };
+        if (alertCh?.isTextBased?.()) await alertCh.send(payload);
+        else if (alertCh?.type === 15) await alertCh.threads.create({ name: `Ticket - ${interaction.user.username}`, message: payload });
+      } catch (e) { console.warn("[TICKETS] Falha ao avisar staff:", e?.message); }
     }
+
     return reply(interaction, mode, `✅ Seu ticket foi aberto: ${channel}`);
   } catch (err) {
     console.error("[TICKETS:ERR openTicket]", err);
@@ -96,20 +97,23 @@ export async function closeTicket(interaction) {
       const at = m.attachments?.size ? " [anexos: " + [...m.attachments.values()].map(a => a.url).join(" ") + "]" : "";
       return `[${ts}] ${who}: ${m.content || ""}${at}`;
     }).join("\n");
-    const txt = header + body;
-    const file = new AttachmentBuilder(Buffer.from(txt, "utf-8"), { name: `${ch.name}-transcript.txt` });
+    const buf = Buffer.from(header + body, "utf-8");
+    const file1 = new AttachmentBuilder(buf, { name: `${ch.name}-transcript.txt` });
+    const file2 = new AttachmentBuilder(Buffer.from(buf), { name: `${ch.name}-transcript.txt` });
 
     try {
       const openerUser = openerId ? await ch.guild.members.fetch(openerId).then(m => m.user).catch(() => null) : null;
       const target = openerUser || interaction.user;
-      await target.send({ content: "📄 Aqui está a cópia do seu ticket. Obrigado por entrar em contato!", files: [file] });
+      await target.send({ content: "📄 Aqui está a cópia do seu ticket. Obrigado por entrar em contato!", files: [file1] });
     } catch {}
 
     if (CONFIG.TICKET_TRANSCRIPTS_CHANNEL_ID) {
       try {
         const logCh = await ch.guild.channels.fetch(CONFIG.TICKET_TRANSCRIPTS_CHANNEL_ID);
-        if (logCh?.isTextBased()) await logCh.send({ content: `📄 **Transcrição de ${ch}**`, files: [file] });
-      } catch {}
+        const payload = { content: `📄 **Transcrição de <#${ch.id}>**`, files: [file2] };
+        if (logCh?.isTextBased?.()) await logCh.send(payload);
+        else if (logCh?.type === 15) await logCh.threads.create({ name: `Transcrição ${ch.name}`, message: payload });
+      } catch (e) { console.warn("[TICKETS] Falha ao enviar transcrição:", e?.message); }
     }
 
     await interaction.editReply("✅ Ticket fechado. O canal será removido.");
