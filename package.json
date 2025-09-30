@@ -1,7 +1,8 @@
+
 {
   "name": "blackbot-black-discord",
-  "version": "3.2.4",
-  "description": "Blackbot - tickets privados com painel e healthcheck HTTP",
+  "version": "3.3.1",
+  "description": "Blackbot - tickets + whitelist (WL) com painéis, fechamento e transcrições",
   "main": "src/index.js",
   "type": "module",
   "scripts": { "start": "node src/index.js" },
