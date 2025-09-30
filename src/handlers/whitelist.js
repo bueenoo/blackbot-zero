@@ -5,7 +5,6 @@ import {
 } from "discord.js";
 import { CONFIG } from "../config.js";
 
-/** Painel de boas-vindas com imagem + escolha de servidor (RP abre WL) */
 export async function sendWelcomePanel(client, channelOverride = null) {
   const channelId = channelOverride || CONFIG.WELCOME_CHANNEL_ID;
   if (!channelId) return { ok: false, reason: "WELCOME_CHANNEL_ID não configurado" };
@@ -27,7 +26,6 @@ export async function sendWelcomePanel(client, channelOverride = null) {
   return { ok: true, channelId: ch.id };
 }
 
-/** Abrir modal de WL */
 export async function handleWlStart(interaction) {
   const modal = new ModalBuilder().setCustomId("wl_modal").setTitle("Nova WL • PT");
   const nome = new TextInputBuilder().setCustomId("wl_nome").setLabel("Nome").setStyle(TextInputStyle.Short).setRequired(true);
@@ -45,7 +43,6 @@ export async function handleWlStart(interaction) {
   await interaction.showModal(modal);
 }
 
-/** Envia a WL para o canal da staff */
 export async function handleWlSubmit(interaction) {
   const uid = interaction.user.id;
   const nome = interaction.fields.getTextInputValue("wl_nome");
@@ -127,5 +124,5 @@ export async function submitRejectReason(interaction, targetUserId) {
       await c.send({ content: `⚠️ <@${targetUserId}> sua **WL foi reprovada**.\n**Motivo:** ${reason}\nPor favor, refaça sua WL em ${redo}.` });
     }
   }
-  await interaction.reply({ content: "✅ Reprovação enviado.", flags: MessageFlags.Ephemeral });
+  await interaction.reply({ content: "✅ Reprovação enviada.", flags: MessageFlags.Ephemeral });
 }

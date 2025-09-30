@@ -2,7 +2,6 @@
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { CONFIG } from "../config.js";
 
-/** Painel de Tickets */
 export async function sendTicketPanel(client, channelOverride = null) {
   try {
     const channel = channelOverride
