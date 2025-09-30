@@ -2,8 +2,8 @@ import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { CONFIG } from "../config.js";
 
 /**
- * Envia o painel de botões.
- * Se channelOverride for informado, usa-o; senão tenta VERIFICATION_CHANNEL_ID do .env.
+ * Envia o painel de botões. Aceita override do canal.
+ * Usa customIds "ticket_*" para compatibilidade com painéis antigos.
  */
 export async function sendVerificationPanel(client, channelOverride = null) {
   try {
@@ -17,13 +17,12 @@ export async function sendVerificationPanel(client, channelOverride = null) {
     }
 
     const row = new ActionRowBuilder().addComponents(
-      new ButtonBuilder().setCustomId("open_ticket_doacoes").setLabel("💰 Doações").setStyle(ButtonStyle.Success),
-      new ButtonBuilder().setCustomId("open_ticket_denuncia").setLabel("🚨 Denúncia").setStyle(ButtonStyle.Danger),
-      new ButtonBuilder().setCustomId("open_ticket_suporte").setLabel("🛠️ Suporte Técnico").setStyle(ButtonStyle.Primary)
+      new ButtonBuilder().setCustomId("ticket_doacoes").setLabel("💰 Doações").setStyle(ButtonStyle.Success),
+      new ButtonBuilder().setCustomId("ticket_denuncia").setLabel("🚨 Denúncia").setStyle(ButtonStyle.Danger),
+      new ButtonBuilder().setCustomId("ticket_suporte").setLabel("🛠️ Suporte Técnico").setStyle(ButtonStyle.Primary)
     );
 
-    const msg = await channel.send({ content: "**Central de Atendimentos — Black**
-Abra um ticket e nossa staff irá ajudá-lo.", components: [row] });
+    const msg = await channel.send({ content: "**Central de Atendimentos — Black**\nAbra um ticket e nossa staff irá ajudá-lo.", components: [row] });
     console.log("[BLACKBOT] Painel de verificação enviado em", `#${channel.name}`);
     return { ok: true, messageId: msg.id, channelId: channel.id };
   } catch (err) {

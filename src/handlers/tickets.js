@@ -3,13 +3,11 @@ import { CONFIG } from "../config.js";
 
 /**
  * Abre um ticket PRIVADO criando um canal na categoria definida por TICKETS_CATEGORY_ID.
- * Para cliques em botões, tenta deferReply(ephemeral). Se o bot não puder enviar mensagens no canal,
- * faz fallback para deferUpdate() e notifica o usuário por DM.
+ * Suporta cliques em botões com fallback para deferUpdate quando necessário.
  */
 export async function openTicket(interaction, tipo) {
   let mode = "reply"; // "reply" | "update"
   try {
-    // Se for botão e o bot NÃO puder enviar mensagem no canal, use deferUpdate
     const me = interaction.client.user?.id;
     const canSendHere = interaction.channel?.permissionsFor(me)?.has(PermissionFlagsBits.SendMessages);
 
@@ -22,14 +20,14 @@ export async function openTicket(interaction, tipo) {
         mode = "reply";
       }
     } catch {
-      // Fallback final
       try { await interaction.deferUpdate(); mode = "update"; } catch {}
     }
 
     const guild = interaction.guild;
     if (!guild) {
-      if (mode === "reply") return interaction.editReply("❌ Não consegui identificar o servidor.");
-      else return interaction.user.send("❌ Não consegui identificar o servidor para abrir seu ticket.");
+      const msg = "❌ Não consegui identificar o servidor.";
+      if (mode === "reply") return interaction.editReply(msg);
+      else return interaction.user.send(msg).catch(() => {});
     }
 
     // Valida categoria
@@ -39,12 +37,12 @@ export async function openTicket(interaction, tipo) {
     if (!category) {
       const msg = "❌ Categoria de tickets não encontrada. Verifique TICKETS_CATEGORY_ID.";
       if (mode === "reply") return interaction.editReply(msg);
-      else return interaction.user.send(msg);
+      else return interaction.user.send(msg).catch(() => {});
     }
     if (category.type !== ChannelType.GuildCategory) {
-      const msg = "❌ O ID informado não é uma **Categoria**. Crie uma categoria normal (não fórum) e use o ID dela.";
+      const msg = "❌ O ID informado não é uma **Categoria**. Use o ID de uma categoria normal (não fórum).";
       if (mode === "reply") return interaction.editReply(msg);
-      else return interaction.user.send(msg);
+      else return interaction.user.send(msg).catch(() => {});
     }
 
     // Nome do canal

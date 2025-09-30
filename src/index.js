@@ -52,8 +52,7 @@ client.once("clientReady", async () => {
         o.setName("limpar")
           .setDescription("Apagar mensagens antigas do bot no canal antes")
           .setRequired(false)
-      )
-      .setDefaultMemberPermissions(PermissionFlagsBits.ManageGuild);
+      );
 
     await rest.put(Routes.applicationGuildCommands(client.user.id, CONFIG.GUILD_ID), {
       body: [cmdTicket.toJSON(), cmdPainel.toJSON()]
@@ -63,7 +62,7 @@ client.once("clientReady", async () => {
     console.error("[BLACKBOT:ERR] Falha ao registrar comandos:", e);
   }
 
-  // Se tiver VERIFICATION_CHANNEL_ID, tenta enviar automaticamente (opcional)
+  // Opcional: envia painel automático
   if (CONFIG.CHANNELS.VERIFICATION) {
     await sendVerificationPanel(client).catch(() => {});
   }
@@ -80,7 +79,7 @@ client.on("interactionCreate", async (interaction) => {
         return await openTicket(interaction, tipo);
       }
       if (interaction.commandName === "painel") {
-        // Permissão já restringida via defaultMemberPermissions, mas validamos por garantia
+        // Validação de permissão em runtime
         if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) {
           return interaction.reply({ content: "❌ Você não tem permissão para usar este comando.", flags: MessageFlags.Ephemeral });
         }
@@ -101,7 +100,7 @@ client.on("interactionCreate", async (interaction) => {
         if (limpar) {
           try {
             const msgs = await target.messages.fetch({ limit: 50 });
-            const toDelete = msgs.filter(m => m.author?.id === interaction.client.user.id && (m.components?.length || (m.content || "").includes("Central de Atendimentos")));
+            const toDelete = msgs.filter(m => m.author?.id === interaction.client.user.id && (m.components?.length || (m.content || '').includes("Central de Atendimentos")));
             for (const msg of toDelete.values()) {
               await msg.delete().catch(() => {});
             }
@@ -115,9 +114,16 @@ client.on("interactionCreate", async (interaction) => {
         else return interaction.editReply(`❌ Falha ao enviar painel: ${res?.reason || "erro desconhecido"}`);
       }
     } else if (interaction.isButton()) {
-      if (interaction.customId?.startsWith("open_ticket_")) {
-        const tipo = interaction.customId.replace("open_ticket_", "");
+      // Suporta "open_ticket_*" e "ticket_*"
+      const id = interaction.customId || "";
+      let tipo = null;
+      if (id.startsWith("open_ticket_")) tipo = id.slice("open_ticket_".length);
+      else if (id.startsWith("ticket_")) tipo = id.slice("ticket_".length);
+
+      if (tipo) {
         return await openTicket(interaction, tipo);
+      } else {
+        console.log("[BUTTON] customId sem handler:", id);
       }
     }
   } catch (err) {
