@@ -1,3 +1,4 @@
+
 export const CONFIG = {
   TOKEN: process.env.DISCORD_TOKEN,
   GUILD_ID: process.env.GUILD_ID,

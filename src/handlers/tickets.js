@@ -1,3 +1,4 @@
+
 import { ChannelType, PermissionFlagsBits, MessageFlags, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { CONFIG } from "../config.js";
 
@@ -41,13 +42,13 @@ export async function openTicket(interaction, tipo) {
     );
     await channel.send({ content: `👋 Olá <@${interaction.user.id}>, que bom que você está aqui!\n\nEm breve um membro da nossa **staff** vai te auxiliar.\n👉 Descreva por favor **o que você necessita** e, se tiver algum **anexo**, já nos envie.`, components: [row] });
 
-    // Aviso staff (Forum ok; não altera comportamento em canal de texto)
+    // Aviso staff (Forum ok)
     if (CONFIG.STAFF_ALERT_CHANNEL_ID) {
       try {
         const alertCh = await guild.channels.fetch(CONFIG.STAFF_ALERT_CHANNEL_ID);
         const payload = { content: `🆕 **Ticket aberto** (${tipo}) por <@${interaction.user.id}> em <#${channel.id}>` };
         if (alertCh?.isTextBased?.()) await alertCh.send(payload);
-        else if (alertCh?.type === 15) await alertCh.threads.create({ name: `Ticket - ${interaction.user.username}`, message: payload });
+        else if (alertCh?.type === ChannelType.GuildForum) await alertCh.threads.create({ name: `Ticket - ${interaction.user.username}`, message: payload });
       } catch (e) { console.warn("[TICKETS] Falha ao avisar staff:", e?.message); }
     }
 
@@ -111,7 +112,7 @@ export async function closeTicket(interaction) {
         const logCh = await ch.guild.channels.fetch(CONFIG.TICKET_TRANSCRIPTS_CHANNEL_ID);
         const payload = { content: `📄 **Transcrição de <#${ch.id}>**`, files: [file2] };
         if (logCh?.isTextBased?.()) await logCh.send(payload);
-        else if (logCh?.type === 15) await logCh.threads.create({ name: `Transcrição ${ch.name}`, message: payload });
+        else if (logCh?.type === ChannelType.GuildForum) await logCh.threads.create({ name: `Transcrição ${ch.name}`, message: payload });
       } catch (e) { console.warn("[TICKETS] Falha ao enviar transcrição:", e?.message); }
     }
 

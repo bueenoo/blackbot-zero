@@ -1,3 +1,4 @@
+
 import "dotenv/config";
 import { Client, GatewayIntentBits, Partials, Routes, REST, SlashCommandBuilder, PermissionFlagsBits, ChannelType, MessageFlags } from "discord.js";
 import { CONFIG } from "./config.js";

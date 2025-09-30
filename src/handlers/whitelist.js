@@ -1,6 +1,7 @@
+
 import {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder,
-  ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags
+  ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags, ChannelType, PermissionFlagsBits
 } from "discord.js";
 import { CONFIG } from "../config.js";
 
@@ -24,7 +25,7 @@ export async function sendWelcomePanel(client, channelOverride = null) {
     new ButtonBuilder().setCustomId("pve_info").setLabel("🛡️ Jogar no PVE").setStyle(ButtonStyle.Secondary)
   );
 
-  const isForum = ch.type === 15;
+  const isForum = ch.type === ChannelType.GuildForum;
   if (ch.isTextBased?.()) {
     await ch.send({ embeds: [emb], components: [row] });
     return { ok: true, channelId: ch.id };
@@ -54,7 +55,37 @@ export async function handleWlStart(interaction) {
   await interaction.showModal(modal);
 }
 
-/** Envia a WL para o canal da staff (texto normal ou forum) */
+/** Resolve o canal real de review quando variável aponta para CATEGORIA */
+async function resolveReviewTarget(guild, configuredId) {
+  const ch = await guild.channels.fetch(configuredId).catch(() => null);
+  if (!ch) return null;
+
+  if (ch.type === ChannelType.GuildCategory) {
+    // 1) tenta achar um canal de texto existente na categoria
+    const candidate = guild.channels.cache.find(c => c.parentId === ch.id && (c.type === ChannelType.GuildText || c.isTextBased?.()));
+    if (candidate) return candidate;
+
+    // 2) cria um canal de texto só para review (visível para STAFF)
+    const overwrites = [
+      { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }
+    ];
+    if (process.env.STAFF_ROLE_ID) {
+      overwrites.push({ id: process.env.STAFF_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
+    }
+    const created = await guild.channels.create({
+      name: "wl-review",
+      type: ChannelType.GuildText,
+      parent: ch.id,
+      permissionOverwrites: overwrites
+    }).catch(() => null);
+    return created;
+  }
+
+  // Se não for categoria, retorna o próprio canal
+  return ch;
+}
+
+/** Envia a WL para o canal da staff (texto, fórum ou categoria -> texto) */
 export async function handleWlSubmit(interaction) {
   const uid = interaction.user.id;
   const nome = interaction.fields.getTextInputValue("wl_nome");
@@ -64,7 +95,7 @@ export async function handleWlSubmit(interaction) {
   const hist  = interaction.fields.getTextInputValue("wl_hist");
 
   const reviewId = CONFIG.WL_STAFF_REVIEW_CHANNEL_ID;
-  const ch = await interaction.guild.channels.fetch(reviewId).catch(() => null);
+  const ch = await resolveReviewTarget(interaction.guild, reviewId);
   if (!ch) {
     return interaction.reply({ content: "❌ Canal de review não encontrado. Verifique WL_STAFF_REVIEW_CHANNEL_ID.", flags: MessageFlags.Ephemeral });
   }
@@ -82,7 +113,7 @@ export async function handleWlSubmit(interaction) {
   try {
     if (ch.isTextBased?.()) {
       await ch.send({ embeds: [emb], components: [row] });
-    } else if (ch.type == 15) { // GuildForum
+    } else if (ch.type === ChannelType.GuildForum) {
       await ch.threads.create({
         name: `WL • ${interaction.user.username} (${uid})`,
         message: { embeds: [emb], components: [row] }
@@ -112,7 +143,7 @@ export async function approveWl(interaction, targetUserId) {
         embeds: [{ image: { url: process.env.CONGRATS_GIF_URL || "https://media.tenor.com/6zvG7v0QF0cAAAAC/dayz.gif" }, color: 0x57f287 }]
       };
       if (c?.isTextBased?.()) await c.send(payload);
-      else if (c?.type === 15) await c.threads.create({ name: `WL aprovada - ${targetUserId}`, message: payload });
+      else if (c?.type === ChannelType.GuildForum) await c.threads.create({ name: `WL aprovada - ${targetUserId}`, message: payload });
     }
     await interaction.editReply("✅ WL aprovada.");
   } catch {
@@ -137,7 +168,7 @@ export async function submitRejectReason(interaction, targetUserId) {
     const c = await interaction.guild.channels.fetch(process.env.WL_NOTIFY_REJECTED_CHANNEL_ID).catch(() => null);
     const payload = { content: `⚠️ <@${targetUserId}> sua **WL foi reprovada**.\n**Motivo:** ${reason}\nPor favor, refaça sua WL em ${redo}.` };
     if (c?.isTextBased?.()) await c.send(payload);
-    else if (c?.type === 15) await c.threads.create({ name: `WL reprovada - ${targetUserId}`, message: payload });
+    else if (c?.type === ChannelType.GuildForum) await c.threads.create({ name: `WL reprovada - ${targetUserId}`, message: payload });
   }
   await interaction.reply({ content: "✅ Reprovação enviada.", flags: MessageFlags.Ephemeral });
 }
