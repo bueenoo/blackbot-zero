@@ -1,7 +1,7 @@
 
 {
   "name": "blackbot-black-discord",
-  "version": "3.3.0",
+  "version": "3.3.1",
   "description": "Blackbot - tickets + whitelist (WL) com painéis, fechamento e transcrições",
   "main": "src/index.js",
   "type": "module",

@@ -40,7 +40,13 @@ client.once("clientReady", async () => {
       .addChannelOption(o => o.setName("tickets").setDescription("Canal para painel de Tickets").addChannelTypes(ChannelType.GuildText).setRequired(true))
       .addChannelOption(o => o.setName("boasvindas").setDescription("Canal para painel de Boas-vindas/WL").addChannelTypes(ChannelType.GuildText).setRequired(true));
 
-    await rest.put(Routes.applicationGuildCommands(client.user.id, CONFIG.GUILD_ID), { body: [cmdTicket.toJSON(), cmdPainel.toJSON(), cmdInstalarTodos.toJSON()] });
+    const cmdReWelcome = new SlashCommandBuilder()
+      .setName("reinstalar_welcome")
+      .setDescription("Reinstala o painel de Boas-vindas/WL em um canal")
+      .addChannelOption(o => o.setName("canal").setDescription("Canal de texto").addChannelTypes(ChannelType.GuildText).setRequired(true))
+      .addBooleanOption(o => o.setName("limpar").setDescription("Apagar painéis antigos do bot").setRequired(false));
+
+    await rest.put(Routes.applicationGuildCommands(client.user.id, CONFIG.GUILD_ID), { body: [cmdTicket.toJSON(), cmdPainel.toJSON(), cmdInstalarTodos.toJSON(), cmdReWelcome.toJSON()] });
     console.log("[BLACKBOT] Slash commands registrados no GUILD.");
   } catch (e) { console.error("[BLACKBOT:ERR] Falha ao registrar comandos:", e); }
 
@@ -80,6 +86,21 @@ client.on("interactionCreate", async (interaction) => {
         const r1 = await sendTicketPanel(interaction.client, cTickets);
         const r2 = await sendWelcomePanel(interaction.client, cWelcome);
         return interaction.editReply(`${r1?.ok ? "✅ Tickets" : "❌ Tickets"} • ${r2?.ok ? "✅ Boas-vindas/WL" : "❌ Boas-vindas/WL"}`);
+      }
+      if (interaction.commandName === "reinstalar_welcome") {
+        if (!interaction.memberPermissions?.has(PermissionFlagsBits.ManageGuild)) return interaction.reply({ content: "❌ Você não tem permissão.", flags: MessageFlags.Ephemeral });
+        const canal = interaction.options.getChannel("canal");
+        const limpar = interaction.options.getBoolean("limpar") || false;
+        await interaction.reply({ content: "⏳ Reinstalando painel de boas-vindas...", flags: MessageFlags.Ephemeral });
+        if (limpar) {
+          try {
+            const msgs = await canal.messages.fetch({ limit: 50 });
+            const toDelete = msgs.filter(m => m.author?.id === interaction.client.user.id && (m.components?.length || (m.embeds?.[0]?.title || '').includes("Bem-vindo(a) ao Black!") || (m.content || '').includes("Bem-vindo(a) ao Black!")));
+            for (const msg of toDelete.values()) await msg.delete().catch(() => {});
+          } catch (e) { console.warn("[WELCOME] Falha ao limpar mensagens:", e.message); }
+        }
+        const res = await sendWelcomePanel(interaction.client, canal);
+        return interaction.editReply(res?.ok ? `✅ Painel de boas-vindas enviado em <#${res.channelId}>.` : `❌ Falha ao enviar painel: ${res?.reason || "erro desconhecido"}`);
       }
     }
 

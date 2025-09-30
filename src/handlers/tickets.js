@@ -19,14 +19,12 @@ export async function openTicket(interaction, tipo) {
 
     const guild = interaction.guild;
     if (!guild) return reply(interaction, mode, "❌ Não consegui identificar o servidor.");
-
     const categoryId = CONFIG.TICKETS_CATEGORY_ID;
     const category = await guild.channels.fetch(categoryId).catch(() => null);
     if (!category) return reply(interaction, mode, "❌ Categoria de tickets não encontrada. Verifique TICKETS_CATEGORY_ID.");
     if (category.type !== ChannelType.GuildCategory) return reply(interaction, mode, "❌ O ID informado não é uma **Categoria**. Use uma categoria normal (não fórum).");
 
     const channelName = `ticket-${tipo}-${interaction.user.username}`.toLowerCase().replace(/[^a-z0-9-_]/g, "-").slice(0, 90);
-
     const channel = await guild.channels.create({
       name: channelName,
       type: ChannelType.GuildText,
@@ -37,13 +35,11 @@ export async function openTicket(interaction, tipo) {
         { id: CONFIG.STAFF_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ReadMessageHistory] }
       ]
     });
-
     await channel.setParent(categoryId, { lockPermissions: false });
 
     const row = new ActionRowBuilder().addComponents(
       new ButtonBuilder().setCustomId("ticket_close").setLabel("🔒 Fechar").setStyle(ButtonStyle.Secondary)
     );
-
     await channel.send({
       content: `👋 Olá <@${interaction.user.id}>, que bom que você está aqui!\n\nEm breve um membro da nossa **staff** vai te auxiliar.\n👉 Descreva por favor **o que você necessita** e, se tiver algum **anexo**, já nos envie.`,
       components: [row]
@@ -55,7 +51,6 @@ export async function openTicket(interaction, tipo) {
         if (alertCh?.isTextBased()) await alertCh.send({ content: `🆕 **Ticket aberto** (${tipo}) por <@${interaction.user.id}> em ${channel}` });
       } catch {}
     }
-
     return reply(interaction, mode, `✅ Seu ticket foi aberto: ${channel}`);
   } catch (err) {
     console.error("[TICKETS:ERR openTicket]", err);
@@ -77,7 +72,6 @@ export async function closeTicket(interaction) {
     const isOpener = openerId ? (interaction.user.id === openerId) : true;
     if (!isStaff && !isOpener) return interaction.editReply("❌ Somente o autor do ticket ou a Staff podem fechar este ticket.");
 
-    // fetch all messages (paginate)
     let all = [];
     let lastId = undefined;
     while (true) {
@@ -96,15 +90,14 @@ export async function closeTicket(interaction) {
       `Data: ${new Date().toISOString()}`,
       ""
     ].join("\n");
-
     const body = all.map(m => {
       const ts = new Date(m.createdTimestamp).toISOString();
       const who = m.author?.tag || "Desconhecido";
       const at = m.attachments?.size ? " [anexos: " + [...m.attachments.values()].map(a => a.url).join(" ") + "]" : "";
       return `[${ts}] ${who}: ${m.content || ""}${at}`;
     }).join("\n");
-
-    const file = new AttachmentBuilder(Buffer.from(header + body, "utf-8"), { name: `${ch.name}-transcript.txt` });
+    const txt = header + body;
+    const file = new AttachmentBuilder(Buffer.from(txt, "utf-8"), { name: `${ch.name}-transcript.txt` });
 
     try {
       const openerUser = openerId ? await ch.guild.members.fetch(openerId).then(m => m.user).catch(() => null) : null;
