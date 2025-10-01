@@ -1,4 +1,3 @@
-
 import {
   ActionRowBuilder, ButtonBuilder, ButtonStyle, EmbedBuilder,
   ModalBuilder, TextInputBuilder, TextInputStyle, MessageFlags, ChannelType, PermissionFlagsBits
@@ -55,37 +54,30 @@ export async function handleWlStart(interaction) {
   await interaction.showModal(modal);
 }
 
-/** Resolve o canal real de review quando variável aponta para CATEGORIA */
-async function resolveReviewTarget(guild, configuredId) {
+/** Resolve categoria->texto e retorna canal de Texto ou Fórum */
+async function resolveTextOrForum(guild, configuredId, createName, staffRoleId) {
   const ch = await guild.channels.fetch(configuredId).catch(() => null);
   if (!ch) return null;
 
   if (ch.type === ChannelType.GuildCategory) {
-    // 1) tenta achar um canal de texto existente na categoria
+    // Procura um canal de texto existente
     const candidate = guild.channels.cache.find(c => c.parentId === ch.id && (c.type === ChannelType.GuildText || c.isTextBased?.()));
     if (candidate) return candidate;
-
-    // 2) cria um canal de texto só para review (visível para STAFF)
-    const overwrites = [
-      { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }
-    ];
-    if (process.env.STAFF_ROLE_ID) {
-      overwrites.push({ id: process.env.STAFF_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
-    }
+    // Cria um novo
+    const overwrites = [{ id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] }];
+    if (staffRoleId) overwrites.push({ id: staffRoleId, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] });
     const created = await guild.channels.create({
-      name: "wl-review",
+      name: createName,
       type: ChannelType.GuildText,
       parent: ch.id,
       permissionOverwrites: overwrites
     }).catch(() => null);
     return created;
   }
-
-  // Se não for categoria, retorna o próprio canal
   return ch;
 }
 
-/** Envia a WL para o canal da staff (texto, fórum ou categoria -> texto) */
+/** Envia a WL para o canal da staff (texto, fórum ou categoria->texto) */
 export async function handleWlSubmit(interaction) {
   const uid = interaction.user.id;
   const nome = interaction.fields.getTextInputValue("wl_nome");
@@ -95,7 +87,7 @@ export async function handleWlSubmit(interaction) {
   const hist  = interaction.fields.getTextInputValue("wl_hist");
 
   const reviewId = CONFIG.WL_STAFF_REVIEW_CHANNEL_ID;
-  const ch = await resolveReviewTarget(interaction.guild, reviewId);
+  const ch = await resolveTextOrForum(interaction.guild, reviewId, "wl-review", process.env.STAFF_ROLE_ID);
   if (!ch) {
     return interaction.reply({ content: "❌ Canal de review não encontrado. Verifique WL_STAFF_REVIEW_CHANNEL_ID.", flags: MessageFlags.Ephemeral });
   }
@@ -114,20 +106,19 @@ export async function handleWlSubmit(interaction) {
     if (ch.isTextBased?.()) {
       await ch.send({ embeds: [emb], components: [row] });
     } else if (ch.type === ChannelType.GuildForum) {
-      await ch.threads.create({
-        name: `WL • ${interaction.user.username} (${uid})`,
-        message: { embeds: [emb], components: [row] }
-      });
+      await ch.threads.create({ name: `WL • ${interaction.user.username} (${uid})`, message: { embeds: [emb], components: [row] } });
     } else {
       return interaction.reply({ content: "❌ Canal de review não é texto nem fórum. Troque para um canal compatível.", flags: MessageFlags.Ephemeral });
     }
-  } catch {
+  } catch (e) {
+    console.warn("[WL] Falha ao enviar WL no canal de review:", e?.message);
     return interaction.reply({ content: `❌ Sem permissão para enviar no canal ${reviewId}.`, flags: MessageFlags.Ephemeral });
   }
 
   return interaction.reply({ content: "✅ Sua WL foi enviada para análise.", flags: MessageFlags.Ephemeral });
 }
 
+/** Aprovar: dá cargo e avisa no canal configurado (aceita texto/fórum/categoria->texto) */
 export async function approveWl(interaction, targetUserId) {
   if (process.env.STAFF_ROLE_ID && !interaction.member.roles.cache.has(process.env.STAFF_ROLE_ID)) {
     return interaction.reply({ content: "❌ Somente a Staff pode aprovar WL.", flags: MessageFlags.Ephemeral });
@@ -135,22 +126,33 @@ export async function approveWl(interaction, targetUserId) {
   await interaction.deferReply({ flags: MessageFlags.Ephemeral });
   try {
     const member = await interaction.guild.members.fetch(targetUserId);
-    if (process.env.WL_APPROVED_ROLE_ID) await member.roles.add(process.env.WL_APPROVED_ROLE_ID).catch(() => {});
-    if (process.env.WL_NOTIFY_APPROVED_CHANNEL_ID) {
-      const c = await interaction.guild.channels.fetch(process.env.WL_NOTIFY_APPROVED_CHANNEL_ID).catch(() => null);
-      const payload = {
-        content: `🎉 Parabéns <@${targetUserId}>! Sua **Whitelist** foi **aprovada**!`,
-        embeds: [{ image: { url: process.env.CONGRATS_GIF_URL || "https://media.tenor.com/6zvG7v0QF0cAAAAC/dayz.gif" }, color: 0x57f287 }]
-      };
-      if (c?.isTextBased?.()) await c.send(payload);
-      else if (c?.type === ChannelType.GuildForum) await c.threads.create({ name: `WL aprovada - ${targetUserId}`, message: payload });
+    const roleId = process.env.WL_APPROVED_ROLE_ID;
+    if (roleId) {
+      await member.roles.add(roleId).catch(err => {
+        console.warn("[WL] Falha ao dar cargo:", err?.message);
+        throw new Error("Sem permissão para dar cargo (verifique hierarquia do cargo do bot).");
+      });
+    }
+
+    const notifyId = process.env.WL_NOTIFY_APPROVED_CHANNEL_ID;
+    if (notifyId) {
+      const c = await resolveTextOrForum(interaction.guild, notifyId, "wl-aprovados", process.env.STAFF_ROLE_ID);
+      if (c) {
+        const payload = {
+          content: `🎉 Parabéns <@${targetUserId}>! Sua **Whitelist** foi **aprovada**!`,
+          embeds: [{ image: { url: process.env.CONGRATS_GIF_URL || "https://media.tenor.com/6zvG7v0QF0cAAAAC/dayz.gif" }, color: 0x57f287 }]
+        };
+        if (c.isTextBased?.()) await c.send(payload);
+        else if (c.type === ChannelType.GuildForum) await c.threads.create({ name: `WL aprovada - ${targetUserId}`, message: payload });
+      }
     }
     await interaction.editReply("✅ WL aprovada.");
-  } catch {
-    await interaction.editReply("❌ Não consegui aprovar. Verifique permissões/cargo.");
-  }
+  } catch (e):
+    console.error("[WL approve] Erro:", e?.message);
+    await interaction.editReply("❌ Não consegui aprovar. Verifique permissões/cargo (hierarquia) e IDs de canais.");
 }
 
+/** Reprovar: coleta motivo e avisa no canal configurado (aceita texto/fórum/categoria->texto) */
 export async function openRejectModal(interaction, targetUserId) {
   if (process.env.STAFF_ROLE_ID && !interaction.member.roles.cache.has(process.env.STAFF_ROLE_ID)) {
     return interaction.reply({ content: "❌ Somente a Staff pode reprovar WL.", flags: MessageFlags.Ephemeral });
@@ -164,11 +166,19 @@ export async function openRejectModal(interaction, targetUserId) {
 export async function submitRejectReason(interaction, targetUserId) {
   const reason = interaction.fields.getTextInputValue("wl_reason");
   const redo = process.env.WELCOME_CHANNEL_ID ? `<#${process.env.WELCOME_CHANNEL_ID}>` : "o canal de entrada";
-  if (process.env.WL_NOTIFY_REJECTED_CHANNEL_ID) {
-    const c = await interaction.guild.channels.fetch(process.env.WL_NOTIFY_REJECTED_CHANNEL_ID).catch(() => null);
-    const payload = { content: `⚠️ <@${targetUserId}> sua **WL foi reprovada**.\n**Motivo:** ${reason}\nPor favor, refaça sua WL em ${redo}.` };
-    if (c?.isTextBased?.()) await c.send(payload);
-    else if (c?.type === ChannelType.GuildForum) await c.threads.create({ name: `WL reprovada - ${targetUserId}`, message: payload });
-  }
-  await interaction.reply({ content: "✅ Reprovação enviada.", flags: MessageFlags.Ephemeral });
+  const notifyId = process.env.WL_NOTIFY_REJECTED_CHANNEL_ID;
+
+  try {
+    if (notifyId) {
+      const c = await resolveTextOrForum(interaction.guild, notifyId, "wl-reprovados", process.env.STAFF_ROLE_ID);
+      const payload = { content: `⚠️ <@${targetUserId}> sua **WL foi reprovada**.
+**Motivo:** ${reason}
+Por favor, refaça sua WL em ${redo}.` };
+      if (c?.isTextBased?.()) await c.send(payload);
+      else if (c?.type === ChannelType.GuildForum) await c.threads.create({ name: `WL reprovada - ${targetUserId}`, message: payload });
+    }
+    await interaction.reply({ content: "✅ Reprovação enviada.", flags: MessageFlags.Ephemeral });
+  } catch (e):
+    console.error("[WL reject] Erro:", e?.message);
+    await interaction.reply({ content: "❌ Não consegui enviar a reprovação. Verifique permissões/IDs.", flags: MessageFlags.Ephemeral });
 }

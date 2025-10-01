@@ -1,4 +1,3 @@
-
 import { ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { CONFIG } from "../config.js";
 

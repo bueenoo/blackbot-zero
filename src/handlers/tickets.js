@@ -1,4 +1,3 @@
-
 import { ChannelType, PermissionFlagsBits, MessageFlags, AttachmentBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } from "discord.js";
 import { CONFIG } from "../config.js";
 
